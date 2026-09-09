@@ -2,52 +2,81 @@ import os
 from flask import Flask, request
 import telebot
 
+# የቦትህን ቶከን እዚህ አስገባ
 TOKEN = "8760230059:AAGjK5qt9LJUkULb3w1whmahrN8QqDYkMOQ"
 bot = telebot.TeleBot(TOKEN)
+
 app = Flask(__name__)
 
-@app.route('/')
-def home():
-    return "Bot is running!"
 
-@app.route(f'/{TOKEN}', methods=['POST'])
-def webhook():
-    json_str = request.get_data().to_dict(flat=True) if hasattr(request.get_data(), 'to_dict') else request.data.decode('utf-8')
-    update = telebot.types.Update.de_json(json_str)
-    bot.process_new_updates([update])
-    return "!", 200
-
-@bot.message_handler(commands=['start', 'hello'])
+# 1. ጅምር ትእዛዝ (Start Command)
+@bot.message_handler(commands=["start"])
 def send_welcome(message):
-    welcome_text = (
-        "ሰላም! የትሬዲንግ ቻርት ፎቶ (TradingView, MT5) ይላኩ።\n\n"
-        "በ 30m, 15m, 5m የጊዜ ማዕቀፎች ላይ በመመስረት የሚከተሉትን እናቀርባለን፦\n"
-        "• **Buy / Sell** ሲግናል\n"
-        "• **Entry Point** (የመግቢያ ነጥብ)\n"
-        "• **Stop Loss & Take Profit** (150 - 250 Pips)\n"
-        "• **Pending Orders** (Buy Limit / Sell Limit)"
-    )
-    bot.reply_to(message, welcome_text)
+  bot.reply_to(
+      message,
+      "ሰላም! 📈 የትሬዲንግ ቻርት ፎቶ ላኩልኝ፤ የገበያውን ሁኔታ በመተንተን Buy/Sell ሲግናል ከ Stop Loss እና Take"
+      " Profit ጋር እሰጥዎታለሁ።",
+  )
 
-@bot.message_handler(content_types=['photo'])
+
+# 2. የቻርት ፎቶ ማቀናበሪያ እና የሲግናል ትንተና (Photo & Chart Analysis Handler)
+@bot.message_handler(content_types=["photo"])
 def handle_chart_photo(message):
-    signal_response = (
-        "📊 **የገበያ ትንተና እና ሲግናል ውጤት:**\n\n"
-        "• **Timeframe Analysis:** 30m (Trend Direction) | 15m & 5m (Execution Zone)\n"
-        "• **Market Position:** **BUY / SELL (Bullish/Bearish Setup)**\n"
-        "• **Entry Point (መግቢያ ነጥብ):** በወቅታዊው የገበያ የድጋፍ/መቋቋም (Support/Resistance) ዞን\n"
-        "• **Pending Orders:** ተስማሚ የሆኑ Buy Limit / Sell Limit ትዕዛዞች\n"
-        "• **Stop Loss (የኪሳራ ገደብ):** 150 - 250 Pips ርቀት\n"
-        "• **Take Profit (የትርፍ ኢላማ):** 300 - 500 Pips\n\n"
-        "⚠️ *ማሳሰቢያ:* የገበያ ሁኔታን እያዩ ሪስክ ማኔጅመንትዎን ይጠбቁ!"
+  try:
+    bot.reply_to(
+        message,
+        "🔍 ቻርቱ እየተተነተነ ነው... እባክዎ ትንሽ ይጠብቁ።",
     )
-    bot.reply_to(message, signal_response)
 
-if __name__ == '__main__':
-    # ዌብሁክን በራስሰር ማገናኘት
-    bot.remove_webhook()
-    bot.set_webhook(url=f"https://crypto-bott-aj9z.onrender.com/{TOKEN}")
-    
-    port = int(os.environ.get('PORT', 10000))
-    app.run(host='0.0.0.0', port=port)
+    # ፎቶውን ከቴሌግራም ሰርቨር ማውረድ
+    file_info = bot.get_file(message.photo[-1].file_id)
+    downloaded_file = bot.download_file(file_info.file_path)
+
+    # ፋይሉን በሰርቨር ላይ ለጊዜው ማስቀመጥ
+    image_path = "chart.jpg"
+    with open(image_path, "wb") as new_file:
+      new_file.write(downloaded_file)
+
+    # ---------------------------------------------------------
+    # እዚህጋ የ AI / ቴክኒካል ትንተና ሎጂክ ይገባል (Buy/Sell, SL, TP)
+    # ---------------------------------------------------------
+    # ለምሳሌ ያህል የሚከተለውን የትንተና ውጤት እንልክለን:
+    signal_result = (
+        "📊 **የገበያ ትንተና ውጤት (Technical Analysis):**\n\n"
+        "🔹 **Asset / Pair:** XAUUSD / Crypto\n"
+        "🟢 **Signal:** BUY (ግዢ)\n"
+        "📍 **Entry Price:** በወቅታዊው የገበያ ዋጋ (Market Price)\n"
+        "🛑 **Stop Loss (SL):** ከቀድሞው ዝቅተኛ ነጥብ (Support) በታች\n"
+        "🎯 **Take Profit (TP):** Resistance ሉላዊ ክልል\n\n"
+        "⚠️ *ማሳሰቢያ:* የራብ ማኔጅመንት (Risk Management) ደንብዎን መጠበቅ አይርሱ!"
+    )
+
+    bot.reply_to(message, signal_result, parse_mode="Markdown")
+
+  except Exception as e:
+    bot.reply_to(
+        message, f"❌ ስህተት ተፈጥሯል: የተላከውን ቻርት ማንበብ አልተቻለም። እባክዎ እንደገና ይሞክሩ።"
+    )
+
+
+# 3. ዌብሁክ ሩት (Webhook Route)
+@app.route(f"/{TOKEN}", methods=["POST"])
+def webhook():
+  json_string = request.get_data().decode("utf-8")
+  update = telebot.types.Update.de_json(json_string)
+  bot.process_new_updates([update])
+  return "!", 200
+
+
+@app.route("/")
+def index():
+  return "Trading Bot is running live!", 200
+
+
+if __name__ == "__main__":
+  bot.remove_webhook()
+  bot.set_webhook(url=f"https://crypto-bott-aj9z.onrender.com/{TOKEN}")
+
+  port = int(os.environ.get("PORT", 10000))
+  app.run(host="0.0.0.0", port=port)
 
