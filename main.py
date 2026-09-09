@@ -2,7 +2,7 @@ import os
 from flask import Flask, request
 import telebot
 
-# የቦትህን ቶከን እዚህ አስገባ
+# ትክክለኛው የቦት ቶከን
 TOKEN = "8760230059:AAGjK5qt9LJUkULb3w1whmahrN8QqDYkMOQ"
 bot = telebot.TeleBot(TOKEN)
 
@@ -38,9 +38,8 @@ def handle_chart_photo(message):
       new_file.write(downloaded_file)
 
     # ---------------------------------------------------------
-    # እዚህጋ የ AI / ቴክኒካል ትንተና ሎጂክ ይገባል (Buy/Sell, SL, TP)
+    # የትሬዲንግ ትንተና ሎጂክ (Buy/Sell, SL, TP)
     # ---------------------------------------------------------
-    # ለምሳሌ ያህል የሚከተለውን የትንተና ውጤት እንልክለን:
     signal_result = (
         "📊 **የገበያ ትንተና ውጤት (Technical Analysis):**\n\n"
         "🔹 **Asset / Pair:** XAUUSD / Crypto\n"
@@ -75,8 +74,10 @@ def index():
 
 if __name__ == "__main__":
   bot.remove_webhook()
-  bot.set_webhook(url=f"https://crypto-bott-aj9z.onrender.com/{TOKEN}")
+  # ትክክለኛው የሰርቨር ዩአርኤል ከቶከኑ ጋር
+  bot.set_webhook(url=f"https://crypto-bott-qj9z.onrender.com/{TOKEN}")
 
   port = int(os.environ.get("PORT", 10000))
   app.run(host="0.0.0.0", port=port)
+
 
