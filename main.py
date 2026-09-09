@@ -1,24 +1,9 @@
+
 import os
-from flask import Flask, request
 import telebot
 
 TOKEN = os.environ.get('BOT_TOKEN', '6760230059:AAEUS1bZ5P8kAvL86ZPtuh-7GvA22z5egR4')
 bot = telebot.TeleBot(TOKEN)
-app = Flask(__name__)
-
-@app.route('/')
-def home():
-    return "Trading Bot is active and running!"
-
-@app.route(f'/{TOKEN}', methods=['POST'])
-def webhook():
-    if request.headers.get('content-type') == 'application/json':
-        json_string = request.get_data().decode('utf-8')
-        update = telebot.types.Update.de_json(json_string)
-        bot.process_new_updates([update])
-        return "!", 200
-    else:
-        return "Invalid signature", 403
 
 @bot.message_handler(commands=['start', 'hello'])
 def send_welcome(message):
@@ -47,6 +32,12 @@ def handle_chart_photo(message):
     bot.reply_to(message, signal_response)
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 10000))
-    app.run(host='0.0.0.0', port=port)
+    # የዌብሁክ ምዝገባን ማጥፋት (አስፈላጊ ከሆነ)
+    try:
+        bot.remove_webhook()
+    except:
+        pass
+    
+    print("Bot is polling...")
+    bot.infinity_polling(skip_pending=True)
 
