@@ -1,7 +1,24 @@
-
 import os
+import threading
+from flask import Flask
 import telebot
 
+# የፍላስክ ሰርቨር ማዋቀር (Render ሰርቨሩን እንዲያነቃው)
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "Trading Bot is running!"
+
+def run_flask():
+    port = int(os.environ.get('PORT', 10000))
+    app.run(host='0.0.0.0', port=port)
+
+def keep_alive():
+    t = threading.Thread(target=run_flask)
+    t.start()
+
+# የቴሌግራም ቦት ማዋቀር
 TOKEN = os.environ.get('BOT_TOKEN', '6760230059:AAEUS1bZ5P8kAvL86ZPtuh-7GvA22z5egR4')
 bot = telebot.TeleBot(TOKEN)
 
@@ -27,17 +44,15 @@ def handle_chart_photo(message):
         "• **Pending Orders:** ተስማሚ የሆኑ Buy Limit / Sell Limit ትዕዛዞች\n"
         "• **Stop Loss (የኪሳራ ገደብ):** 150 - 250 Pips ርቀት\n"
         "• **Take Profit (የትርፍ ኢላማ):** 300 - 500 Pips\n\n"
-        "⚠️ *ማሳሰቢያ:* የገበያ ሁኔታን እያዩ ሪስክ ማኔጅመንትዎን ይጠብቁ!"
+        "⚠️ *ማሳሰቢያ:* የገበያ ሁኔታን እያዩ ሪስክ ማኔጅመንትዎን ይጠبቁ!"
     )
     bot.reply_to(message, signal_response)
 
 if __name__ == '__main__':
-    # የዌብሁክ ምዝገባን ማጥፋት (አስፈላጊ ከሆነ)
-    try:
-        bot.remove_webhook()
-    except:
-        pass
+    # ዌብ ሰርቨሩን ከበስተጀርባ (Background) ማስጀመር
+    keep_alive()
     
-    print("Bot is polling...")
+    # ቦቱን በፖሊንግ ማሰራት
+    print("Bot is starting polling...")
     bot.infinity_polling(skip_pending=True)
 
