@@ -38,5 +38,6 @@ def handle_chart(message):
 def echo_all(message):
     bot.reply_to(message, "សូម/እባክዎን የቻርት ስክሪንሾት (Screenshot) ይላኩ።")
 
-bot.infinity_polling()
+bot.infinity_polling(skip_pending=True)
+
 
