@@ -2,7 +2,7 @@ import telebot
 import os
 
 # የቦቱን ቶከን ከኤንቫይሮመንት ወይም በቀጥታ እዚህ አስገባ
-TOKEN = os.environ.get('BOT_TOKEN', '8760230059:AAG_e2V6H6KIBIEdnUjStrlWt_OUgSwPsDs')
+TOKEN = os.environ.get('BOT_TOKEN', '8760230059:AAEUSlBz5M8kAvL86ZPfwdW-7GvA2z5egR4')
 bot = telebot.TeleBot(TOKEN)
 
 @bot.message_handler(commands=['start', 'hello'])
