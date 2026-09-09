@@ -1,26 +1,21 @@
 import os
-import threading
-from flask import Flask
+from flask import Flask, request
 import telebot
 
-# የፍላስክ ሰርቨር (Render ሰርቨሩ ንቁ ሆኖ እንዲቆይ)
-app = Flask('')
+TOKEN = "6760230059:AAEUS1bZ5P8kAvL86ZPtuh-7GvA22z5egR4"
+bot = telebot.TeleBot(TOKEN)
+app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Trading Bot is running!"
+    return "Bot is running!"
 
-def run_flask():
-    port = int(os.environ.get('PORT', 10000))
-    app.run(host='0.0.0.0', port=port)
-
-def keep_alive():
-    t = threading.Thread(target=run_flask)
-    t.start()
-
-# አዲሱን የቦት ቶከን እዚህ ጋር አስገባ (ከ BotFather የወሰድከውን)
-TOKEN = "8760230059:AAGjK5qt9LJUkULb3w1whmahrN8QqDYkMOQ"
-bot = telebot.TeleBot(TOKEN)
+@app.route(f'/{TOKEN}', methods=['POST'])
+def webhook():
+    json_str = request.get_data().to_dict(flat=True) if hasattr(request.get_data(), 'to_dict') else request.data.decode('utf-8')
+    update = telebot.types.Update.de_json(json_str)
+    bot.process_new_updates([update])
+    return "!", 200
 
 @bot.message_handler(commands=['start', 'hello'])
 def send_welcome(message):
@@ -44,12 +39,15 @@ def handle_chart_photo(message):
         "• **Pending Orders:** ተስማሚ የሆኑ Buy Limit / Sell Limit ትዕዛዞች\n"
         "• **Stop Loss (የኪሳራ ገደብ):** 150 - 250 Pips ርቀት\n"
         "• **Take Profit (የትርፍ ኢላማ):** 300 - 500 Pips\n\n"
-        "⚠️ *ማሳሰቢያ:* የገበያ ሁኔታን እያዩ ሪስክ ማኔጅመንትዎን ይጠبቁ!"
+        "⚠️ *ማሳሰቢያ:* የገበያ ሁኔታን እያዩ ሪስክ ማኔጅመንትዎን ይጠбቁ!"
     )
     bot.reply_to(message, signal_response)
 
 if __name__ == '__main__':
-    keep_alive()
-    print("Bot is starting polling...")
-    bot.infinity_polling(skip_pending=True)
+    # ዌብሁክን በራስሰር ማገናኘት
+    bot.remove_webhook()
+    bot.set_webhook(url=f"https://crypto-bott-aj9z.onrender.com/{TOKEN}")
+    
+    port = int(os.environ.get('PORT', 10000))
+    app.run(host='0.0.0.0', port=port)
 
