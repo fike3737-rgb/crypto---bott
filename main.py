@@ -3,7 +3,7 @@ import threading
 from flask import Flask
 import telebot
 
-# የፍላስክ ሰርቨር ማዋቀር (Render ሰርቨሩን እንዲያነቃው)
+# የፍላስክ ሰርቨር (Render ሰርቨሩ ንቁ ሆኖ እንዲቆይ)
 app = Flask('')
 
 @app.route('/')
@@ -18,8 +18,8 @@ def keep_alive():
     t = threading.Thread(target=run_flask)
     t.start()
 
-# የቴሌግራም ቦት ማዋቀር
-TOKEN = os.environ.get('BOT_TOKEN', '6760230059:AAEUS1bZ5P8kAvL86ZPtuh-7GvA22z5egR4')
+# አዲሱን የቦት ቶከን እዚህ ጋር አስገባ (ከ BotFather የወሰድከውን)
+TOKEN = "8760230059:AAGjK5qt9LJUkULb3w1whmahrN8QqDYkMOQ"
 bot = telebot.TeleBot(TOKEN)
 
 @bot.message_handler(commands=['start', 'hello'])
@@ -49,10 +49,7 @@ def handle_chart_photo(message):
     bot.reply_to(message, signal_response)
 
 if __name__ == '__main__':
-    # ዌብ ሰርቨሩን ከበስተጀርባ (Background) ማስጀመር
     keep_alive()
-    
-    # ቦቱን በፖሊንግ ማሰራት
     print("Bot is starting polling...")
     bot.infinity_polling(skip_pending=True)
 
