@@ -1,74 +1,54 @@
 import os
+from flask import Flask
+from threading import Thread
 import telebot
 import google.generativeai as genai
 
-# Render Environment Variables
+# Render ፖርት ፈልጎ እንዳይዘጋ የዌብ ሰርቨር ማቋቋሚያ
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "Bot is running live!"
+
+def run():
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
+
+# Environment Variables
 TELEGRAM_BOT_TOKEN = os.environ.get("8760230059:AAFLTDZjIrigBf4YSf_NWl0Qg1WbRldA4rY")
 GEMINI_API_KEY = os.environ.get("AQ.Ab8RN6IApOru0HbLxYhnMJM_YVwq-IWs3UyVymept78ynLhyYw")
 
-# Gemini እና Telegram Botን ማዘጋጀት
 genai.configure(api_key=GEMINI_API_KEY)
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 
-# የገበያ ትንታኔ መስጫ Function (አዲሱ ክፍል)
-def generate_market_analysis(symbol):
-    model = genai.GenerativeModel('gemini-1.5-flash')
-    
-    prompt = f"""
-    እባክህ ለ {symbol} (ለ GOLD/XAUUSD, Crypto, ወይም Forex) ጥልቅ እና የተሟላ የገበያ ትንታኔ አድርግ።
-    
-    የሚከተሉትን መረጃዎች በግልጽ እና በተደራጀ መልኩ አስቀምጥ፦
-    1. 💰 **የአሁኑ የገበያ ሁኔታ እና ግምት (Current Market Status)**
-    2. 📊 **የገበያ አቅጣጫ (BUY / SELL / HOLD)**
-    3. 🎯 **የሚመከሩ Take Profit (TP) ደረጃዎች** (TP1, TP2, TP3)
-    4. 🛡️ **የሚመከር Stop Loss (SL) ደረጃ**
-    5. ⚖️ **Risk-to-Reward Ratio**
-    6. 🧱 **የድጋፍ እና የመቋቋሚያ ደረጃዎች (Key Support & Resistance Levels)**
-    7. 📝 **የቴክኒካል እና የፋንዳሜንታል ትንታኔ አጭር ማብራሪያ (በአማርኛ)**
-    
-    መልስህን በአማርኛ ቋንቋ፣ በግልጽ እና በምልክቶች (Emojis) አምረው አቅርበው።
-    """
-    try:
-        response = model.generate_content(prompt)
-        return response.text
-    except Exception as e:
-        return f"ይቅርታ፣ ትንታኔውን በማዘጋጀት ላይ ስህተት ተፈጥሯል፦ {str(e)}"
+SYSTEM_PROMPT = """
+እርስዎ ልምድ ያካበቱ የፋይናንስ ማርኬት አናሊስት ነዎት። 
+ለማንኛውም የተጠየቁት አሴት (GOLD, Crypto, Forex) በበሰለ መልኩ የሚከተሉትን አካተው በአማርኛ መልስ ይስጡ፡
+1. Trend & Candlestick Analysis (የገበያው አቅጣጫ እና የካንደልስቲክ ቅርፅ)
+2. Technical Indicators (RSI, MACD)
+3. Support and Resistance Levels
+4. Pending Order Zones (Buy Limit / Sell Limit ከነ Entry, TP, SL እና Risk-to-Reward)
+"""
 
-# /start Command
-@bot.message_handler(commands=['start', 'help'])
-def send_welcome(message):
-    user_first_name = message.from_user.first_name
-    welcome_text = (
-        f"ሰላም {user_first_name}! 👋\n\n"
-        f"እንኳን ወደ **የተሟላ የገበያ ትንታኔ ቦት** በደህና መጡ!\n\n"
-        f"📌 **እንዴት መጠቀም ይችላሉ?**\n"
-        f"የሚፈልጉትን የ Asset ስም ይላኩ (ለምሳሌ፦ `GOLD`, `BTCUSD`, `EURUSD`)"
-    )
-    bot.reply_to(message, welcome_text, parse_mode="Markdown")
-
-# Message Handler
 @bot.message_handler(func=lambda message: True)
 def analyze_market(message):
-    symbol = message.text.upper().strip()
-    user_name = message.from_user.first_name
-    
-    wait_message = bot.reply_to(
-        message, 
-        f"እሺ {user_name}👨‍💻! ለ **{symbol}** የቀጥታ ዋጋ እና ተጨማሪ ቴክኒካል መረጃዎችን እየሰበሰብኩ ነው... እባክዎ ትንሽ ይጠብቁ ⏳"
-    )
-    
-    analysis_result = generate_market_analysis(symbol)
-    bot.delete_message(message.chat.id, wait_message.message_id)
-    
-    final_response = (
-        f"👤 **ተጠቃሚ፦** {user_name}\n"
-        f"🪙 **የተመረጠው የገበያ አይነት፦** {symbol}\n"
-        f"-----------------------------------\n\n"
-        f"{analysis_result}"
-    )
-    bot.reply_to(message, final_response, parse_mode="Markdown")
+    try:
+        user_query = message.text
+        model = genai.GenerativeModel(
+            model_name="gemini-1.5-flash",
+            system_instruction=SYSTEM_PROMPT
+        )
+        response = model.generate_content(f"ለዚህ አሴት ዝርዝር የገበያ ትንታኔ ስጥ፡ {user_query}")
+        bot.reply_to(message, response.text)
+    except Exception as e:
+        bot.reply_to(message, f"ስህተት ተከሰተ፡ {str(e)}")
 
 if __name__ == "__main__":
+    keep_alive()
     print("ቦቱ በሰላም ስራ ጀምሯል...")
     bot.infinity_polling()
 
