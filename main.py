@@ -2,29 +2,23 @@ import os
 import telebot
 import google.generativeai as genai
 
-# Render Environment Variables - Render ላይ የተዘጋጁትን ቁልፎች ማንበቢያ
-TELEGRAM_BOT_TOKEN = "8760230059:AAFLTDZjIrigBf4YSf_NWl0Qg1WbRldA4rY"
-GEMINI_API_KEY = "AQ.Ab8RN6IApOru0HbLxYhnMJM_YVwq-IWs3UyVymept78ynLhyYw"
-
-# የቴሌግራም ቁልፉ መኖር እና አለመኖሩን ማረጋገጫ
-if not TELEGRAM_BOT_TOKEN:
-    raise ValueError("TELEGRAM_BOT_TOKEN በ Render Environment ውስጥ አልተገኘም!")
+# Render Environment Variables
+TELEGRAM_BOT_TOKEN = os.environ.get("8760230059:AAFLTDZjIrigBf4YSf_NWl0Qg1WbRldA4rY")
+GEMINI_API_KEY = os.environ.get("AQ.Ab8RN6IApOru0HbLxYhnMJM_YVwq-IWs3UyVymept78ynLhyYw")
 
 # Gemini እና Telegram Botን ማዘጋጀት
 genai.configure(api_key=GEMINI_API_KEY)
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 
-# የገበያ ትንታኔ መስጫ Function
+# የገበያ ትንታኔ መስጫ Function (አዲሱ ክፍል)
 def generate_market_analysis(symbol):
-    model = genai.GenerativeModel(
-        model_name='gemini-1.5-flash',
-        tools=[{"google_search": {}}]
-    )
-    prompt = f"""
-    እባክህ አሁን ያለውን የቀጥታ የገበያ ዋጋ (Real-time live price) ከኢንተርኔት ፈልገህ በማውጣት ለ {symbol} (ለ GOLD/XAUUSD, Crypto, ወይም Forex) ጥልቅ የገበያ ትንታኔ አድርግ።
+    model = genai.GenerativeModel('gemini-1.5-flash')
     
-    የሚከተሉትን ተጨማሪ ነገሮች በግልጽ እና በተደራጀ መልኩ አስቀምጥ፦
-    1. 💰 **አሁን ያለው የቀጥታ ዋጋ (Current Live Price)**
+    prompt = f"""
+    እባክህ ለ {symbol} (ለ GOLD/XAUUSD, Crypto, ወይም Forex) ጥልቅ እና የተሟላ የገበያ ትንታኔ አድርግ።
+    
+    የሚከተሉትን መረጃዎች በግልጽ እና በተደራጀ መልኩ አስቀምጥ፦
+    1. 💰 **የአሁኑ የገበያ ሁኔታ እና ግምት (Current Market Status)**
     2. 📊 **የገበያ አቅጣጫ (BUY / SELL / HOLD)**
     3. 🎯 **የሚመከሩ Take Profit (TP) ደረጃዎች** (TP1, TP2, TP3)
     4. 🛡️ **የሚመከር Stop Loss (SL) ደረጃ**
