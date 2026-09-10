@@ -3,7 +3,7 @@ import telebot
 import google.generativeai as genai
 
 # Render Environment Variables - Render ላይ የተዘጋጁትን ቁልፎች ማንበቢያ
-TELEGRAM_BOT_TOKEN = "8768230059:AAFDAuFHW0j77fvLdKW-Rrzilj_4E1vsBV8"
+TELEGRAM_BOT_TOKEN = "8760230059:AAFLTDZjIrigBf4YSf_NWl0Qg1WbRldA4rY"
 GEMINI_API_KEY = "AQ.Ab8RN6IApOru0HbLxYhnMJM_YVwq-IWs3UyVymept78ynLhyYw"
 
 # የቴሌግራም ቁልፉ መኖር እና አለመኖሩን ማረጋገጫ
