@@ -2,14 +2,19 @@ import os
 import telebot
 import google.generativeai as genai
 
-# 1. የቴሌግራም ቦት Token በቀጥታ እዚህ ገብቷል
+# Render Environment Variables - Render ላይ የተዘጋጁትን ቁልፎች ማንበቢያ
 TELEGRAM_BOT_TOKEN = os.environ.get("8760230059:AAFDAuFHW0j77fvLdKW-Rrzilj_4ElvsBV8")
 GEMINI_API_KEY = os.environ.get("AQ.Ab8RN6IApOru0HbLxYhnMJM_YVwq-IWs3UyVymept78ynLhyYw")
-# 2. Gemini እና Telegram Botን ማዘጋጀት
+
+# የቴሌግራም ቁልፉ መኖር እና አለመኖሩን ማረጋገጫ
+if not TELEGRAM_BOT_TOKEN:
+    raise ValueError("TELEGRAM_BOT_TOKEN በ Render Environment ውስጥ አልተገኘም!")
+
+# Gemini እና Telegram Botን ማዘጋጀት
 genai.configure(api_key=GEMINI_API_KEY)
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 
-# 3. የገበያ ትንታኔ መስጫ Function
+# የገበያ ትንታኔ መስጫ Function
 def generate_market_analysis(symbol):
     model = genai.GenerativeModel(
         model_name='gemini-1.5-flash',
@@ -35,19 +40,19 @@ def generate_market_analysis(symbol):
     except Exception as e:
         return f"ይቅርታ፣ ትንታኔውን በማዘጋጀት ላይ ስህተት ተፈጥሯል፦ {str(e)}"
 
-# 4. /start Command
+# /start Command
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
     user_first_name = message.from_user.first_name
     welcome_text = (
         f"ሰላም {user_first_name}! 👋\n\n"
-        f"እንኳን ወደ **የተሟላ የገበያ ትንታኔ፣ TP/SL እና Support/Resistance ቦት** በደህና መጡ!\n\n"
+        f"እንኳን ወደ **የተሟላ የገበያ ትንታኔ ቦት** በደህና መጡ!\n\n"
         f"📌 **እንዴት መጠቀም ይችላሉ?**\n"
         f"የሚፈልጉትን የ Asset ስም ይላኩ (ለምሳሌ፦ `GOLD`, `BTCUSD`, `EURUSD`)"
     )
     bot.reply_to(message, welcome_text, parse_mode="Markdown")
 
-# 5. Message Handler
+# Message Handler
 @bot.message_handler(func=lambda message: True)
 def analyze_market(message):
     symbol = message.text.upper().strip()
@@ -55,7 +60,7 @@ def analyze_market(message):
     
     wait_message = bot.reply_to(
         message, 
-        f"እሺ {user_name}👨‍💻! ለ **{symbol}** የቀጥታ ዋጋ፣ TP/SL እና ተጨማሪ ቴክኒካል መረጃዎችን እየሰበሰብኩ ነው... እባክዎ ትንሽ ይጠብቁ ⏳"
+        f"እሺ {user_name}👨‍💻! ለ **{symbol}** የቀጥታ ዋጋ እና ተጨማሪ ቴክኒካል መረጃዎችን እየሰበሰብኩ ነው... እባክዎ ትንሽ ይጠብቁ ⏳"
     )
     
     analysis_result = generate_market_analysis(symbol)
