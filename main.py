@@ -3,7 +3,7 @@ import telebot
 import google.generativeai as genai
 
 # 1. Environment Variables (ከ Render ዳሽቦርድ የሚነበቡ)
-TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+TELEGRAM_BOT_TOKEN = os.environ.get("8760230059:AAHHyIm0gY_YWNiRAaCRPPM71qggWLdmvZY")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
 # 2. Gemini እና Telegram Botን ማዘጋጀት
