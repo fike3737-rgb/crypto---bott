@@ -3,7 +3,7 @@ import telebot
 import google.generativeai as genai
 
 # 1. የቴሌግራም ቦት Token በቀጥታ እዚህ ገብቷል
-TELEGRAM_BOT_TOKEN = os.environ.get("8760230059:AAHHyIm0gY_YWNiRAaCRPPM71qggWLdmvZY")
+TELEGRAM_BOT_TOKEN = os.environ.get("8760230059:AAFDAuFHW0j77fvLdKW-Rrzilj_4ElvsBV8")
 GEMINI_API_KEY = os.environ.get("AQ.Ab8RN6IApOru0HbLxYhnMJM_YVwq-IWs3UyVymept78ynLhyYw")
 # 2. Gemini እና Telegram Botን ማዘጋጀት
 genai.configure(api_key=GEMINI_API_KEY)
