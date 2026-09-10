@@ -1,90 +1,91 @@
 import os
-from flask import Flask, request
 import telebot
 import google.generativeai as genai
 
-# የቦት እና የ AI ማዋቀሪያ
-TOKEN = "8760230059:AAGjK5qt9LJUkULb3w1whmahrN8QqDYkMOQ"
-bot = telebot.TeleBot(TOKEN)
+# 1. Environment Variables (ከ Render ዳሽቦርድ የሚነበቡ)
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
-# የ Google Gemini API ኪ ቁልፍ (በ Render Environment Variables ውስጥ GOOGLE_API_KEY ብለህ ማስገባት አለብህ)
-genai.configure(api_key=os.environ.get("GOOGLE_API_KEY"))
+# 2. Gemini እና Telegram Botን ማዘጋጀት
+genai.configure(api_key=GEMINI_API_KEY)
+bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 
-app = Flask(__name__)
+# 3. የገበያ ትንታኔ እና ተጨማሪ መረጃዎችን አዘጋጅቶ የሚሰጥ Function
+def generate_market_analysis(symbol):
+    # Google Search Tool በመጠቀም የቀጥታ የገበያ መረጃን መፈለግ
+    model = genai.GenerativeModel(
+        model_name='gemini-1.5-flash',
+        tools=[{"google_search": {}}]
+    )
+    
+    prompt = f"""
+    እባክህ አሁን ያለውን የቀጥታ የገበያ ዋጋ (Real-time live price) ከኢንተርኔት ፈልገህ በማውጣት ለ {symbol} (ለ GOLD/XAUUSD, Crypto, ወይም Forex) ጥልቅ የገበያ ትንታኔ አድርግ።
+    
+    የሚከተሉትን ተጨማሪ ነገሮች በግልጽ እና በተደራጀ መልኩ አስቀምጥ፦
+    1. 💰 **አሁን ያለው የቀጥታ ዋጋ (Current Live Price)**
+    2. 📊 **የገበያ አቅጣጫ (BUY / SELL / HOLD)**
+    3. 🎯 **የሚመከሩ Take Profit (TP) ደረጃዎች**፦
+       - TP1 (አጭር ጊዜ)
+       - TP2 (መካከለኛ ጊዜ)
+       - TP3 (ረጅም ጊዜ)
+    4. 🛡️ **የሚመከር Stop Loss (SL) ደረጃ**
+    5. ⚖️ **Risk-to-Reward Ratio**
+    6. 🧱 **የድጋፍ እና የመቋቋሚያ ደረጃዎች (Key Support & Resistance Levels)**
+    7. 📝 **የቴክኒካል እና የፋንዳሜንታል ትንታኔ አጭር ማብራሪያ (በአማርኛ)**
+    
+    መልስህን በአማርኛ ቋንቋ፣ በግልጽ እና በምልክቶች (Emojis) አምረው አቅርበው።
+    """
+    try:
+        response = model.generate_content(prompt)
+        return response.text
+    except Exception as e:
+        return f"ይቅርታ፣ ትንታኔውን በማዘጋጀት ላይ ስህተት ተፈጥሯል፦ {str(e)}"
 
-
-@bot.message_handler(commands=["start"])
+# 4. የ /start ትዕዛዝ
+@bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
-  bot.reply_to(
-      message,
-      "ሰላም! 📈 የትሬዲንግ ቻርት ፎቶ ላኩልኝ፤ AI በመጠቀም ቻርቱን በመተንተን ትክክለኛውን Entry, Stop Loss (SL) እና Take"
-      " Profit (TP) ዋጋዎች አዘጋጅቼ እሰጥዎታለሁ።",
-  )
-
-
-@bot.message_handler(content_types=["photo"])
-def handle_chart_photo(message):
-  try:
-    bot.reply_to(
-        message,
-        "🔍 ቻርቱ በ AI እየተተነተነ ነው... እባክዎ ትንሽ ይጠብቁ።",
+    user_first_name = message.from_user.first_name
+    welcome_text = (
+        f"ሰላም {user_first_name}! 👋\n\n"
+        f"እንኳን ወደ **የተሟላ የገበያ ትንታኔ፣ TP/SL እና Support/Resistance ቦት** በደህና መጡ!\n\n"
+        f"📌 **እንዴት መጠቀም ይችላሉ?**\n"
+        f"የሚፈልጉትን የ Asset ስም ይላኩ።\n"
+        f"ለምሳሌ፦\n"
+        f"• `GOLD` ወይም `XAUUSD`\n"
+        f"• `BTCUSD`\n"
+        f"• `EURUSD`"
     )
+    bot.reply_to(message, welcome_text, parse_mode="Markdown")
 
-    # ፎቶውን ከቴሌግራም ማውረድ
-    file_info = bot.get_file(message.photo[-1].file_id)
-    downloaded_file = bot.download_file(file_info.file_path)
-
-    image_path = "chart.jpg"
-    with open(image_path, "wb") as new_file:
-      new_file.write(downloaded_file)
-
-    # ፎቶውን ለ Gemini AI መላክ እና ትንተና መጠየቅ
-    with open(image_path, "rb") as f:
-      image_bytes = f.read()
-
-    ai_model = genai.GenerativeModel("gemini-2.5-flash")
-    prompt = (
-        "ይህንን የትሬዲንግ ቻርት በጥንቃቄ ተመልከት። የገበያውን አዝማሚያ (Trend) በመለየት "
-        "የሚከተሉትን ትክክለኛ መረጃዎች በግልጽ አውጣ፦\n"
-        "1. Asset / Pair (የገበያ አይነት)\n"
-        "2. Signal (BUY ወይም SELL)\n"
-        "3. Entry Price (ትክክለኛ የመግቢያ ዋጋ በቁጥር)\n"
-        "4. Stop Loss (SL) (የጥንቃቄ ማቆሚያ ዋጋ በቁጥር)\n"
-        "5. Take Profit (TP) (የትርፍ ማግኛ ዋጋ በቁጥር)\n"
-        "መልስህን በአጭር እና ግልጽ በሆነ የቴሌግራም Markdown формат አቅርብ።"
+# 5. ተጠቃሚው Symbol ሲልክ የሚሰጠው ምላሽ
+@bot.message_handler(func=lambda message: True)
+def analyze_market(message):
+    symbol = message.text.upper().strip()
+    user_name = message.from_user.first_name
+    
+    # ሎዲንግ መልእክት መላክ
+    wait_message = bot.reply_to(
+        message, 
+        f"እሺ {user_name}👨‍💻! ለ **{symbol}** የቀጥታ ዋጋ፣ TP/SL እና ተጨማሪ ቴክኒካል መረጃዎችን እየሰበሰብኩ ነው... እባክዎ ትንሽ ይጠብቁ ⏳"
     )
-
-    response = ai_model.generate_content([
-        {"mime_type": "image/jpeg", "data": image_bytes},
-        prompt,
-    ])
-
-    bot.reply_to(message, response.text, parse_mode="Markdown")
-
-  except Exception as e:
-    bot.reply_to(
-        message,
-        f"❌ ስህተት ተፈጥሯል: ቻርቱን ማንበብ አልተቻለም። እባክዎ የ API ቁልፍ መኖሩን ያረጋግጡ።",
+    
+    # የ Gemini ትንታኔን መቀበል
+    analysis_result = generate_market_analysis(symbol)
+    
+    # የቆየውን የሎዲንግ መልእክት አጥፍቶ ትንታኔውን መላክ
+    bot.delete_message(message.chat.id, wait_message.message_id)
+    
+    final_response = (
+        f"👤 **ተጠቃሚ፦** {user_name}\n"
+        f"🪙 **የተመረጠው የገበያ አይነት፦** {symbol}\n"
+        f"-----------------------------------\n\n"
+        f"{analysis_result}"
     )
+    
+    bot.reply_to(message, final_response, parse_mode="Markdown")
 
-
-@app.route(f"/{TOKEN}", methods=["POST"])
-def webhook():
-  json_string = request.get_data().decode("utf-8")
-  update = telebot.types.Update.de_json(json_string)
-  bot.process_new_updates([update])
-  return "!", 200
-
-
-@app.route("/")
-def index():
-  return "Trading Bot with AI Vision is running live!", 200
-
-
+# 6. ቦቱን ማስነሳት
 if __name__ == "__main__":
-  bot.remove_webhook()
-  bot.set_webhook(url=f"https://crypto-bott-qj9z.onrender.com/{TOKEN}")
-
-  port = int(os.environ.get("PORT", 10000))
-  app.run(host="0.0.0.0", port=port)
+    print("ቦቱ በሰላም ስራ ጀምሯል...")
+    bot.infinity_polling()
 
