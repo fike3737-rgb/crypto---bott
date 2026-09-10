@@ -4,18 +4,18 @@ from threading import Thread
 import telebot
 import google.generativeai as genai
 
-# 1. ቶከኖች ከ Environment Variables ማንበብ
-TELEGRAM_BOT_TOKEN = os.environ.get("8760230059:AAFLTDZjIrigBf4YSf_NWl0Qg1WbRldA4rY")
-GEMINI_API_KEY = os.environ.get("AQ.Ab8RN6IApOru0HbLxYhnMJM_YVwq-IWs3UyVymept78ynLhyYw")
+# ቶከኖቹን በቀጥታ እዚህ ጋር ያስገቡ
+TELEGRAM_BOT_TOKEN = "8760230059:AAFLTDZjIrigBf4YSf_NWl0Qg1WbRldA4rY"
+GEMINI_API_KEY = "AQ.Ab8RN6IApOru0HbLxYhnMJM_YVwq-IWs3UyVymept78ynLhyYw"
 
-# 2. ጀሚኒን ማዋቀር
+# ጀሚኒን ማዋቀር
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel('gemini-1.5-flash')
 
-# 3. ቴሌግራም ቦት ማዋቀር
+# ቴሌግራም ቦት ማዋቀር
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 
-# 4. የፍላስክ ሰርቨር (Render Port Timeout እንዳይፈጥር)
+# የፍላስክ ሰርቨር (Render Port Timeout እንዳይፈጥር)
 app = Flask('')
 
 @app.route('/')
@@ -29,7 +29,7 @@ def keep_alive():
     t = Thread(target=run)
     t.start()
 
-# 5. የቴሌግራም መልዕክት መቀበያ
+# የቴሌግራም መልዕክት መቀበያ
 @bot.message_handler(commands=['start'])
 def send_welcome(welcome_message):
     bot.reply_to(welcome_message, "ሰላም! የፋይናንስ ማርኬት ትንታኔ ቦትዎ ዝግጁ ነው። እንደ 'Gold' ወይም 'BTC' ያሉትን ስሞች በመጻፍ ትንታኔ ማግኘት ይችላሉ።")
