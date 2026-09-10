@@ -48,6 +48,7 @@ def analyze_market(message):
 
 if __name__ == "__main__":
     keep_alive()
-    print("ቦቱ በሰላም ስራ ጀምሯል.
+    print("ቦቱ በሰላም ስራ ጀምሯል...")
+
 bot.infinity_polling(skip_pending=True)
 
