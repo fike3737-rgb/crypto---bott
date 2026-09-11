@@ -3,9 +3,9 @@ import telebot
 import google.generativeai as genai
 from flask import Flask, request
 
-# ኤንቫይሮመንት ቫሪያብሎችን ከ Render ማንበብ (ቦቱን እና ጀሚኒን ከ Render ማስተካከል)
-TELEGRAM_BOT_TOKEN = os.getenv("8760230059:AAGp2ih2at7A6-EDKeQalqedOCe9tbXc1dI")
-GEMINI_API_KEY = os.getenv("AQ.Ab8RN6IApOru0HbLxYhnMJM_YVwq-IWs3UyVymept78ynLhyYw")
+# ቶከኖቹን እና ኪዩን በቀጥታ እዚህ ጋር እናስገባለን (ግጭት እንዳይፈጥር)
+TELEGRAM_BOT_TOKEN = "8760230059:AAGp2ih2at7A6-EDKeQalqed0Ce9tbxA"
+GEMINI_API_KEY = "AQ.Ab8RN6IApOru0HbLxYhnMJM_YVwq-IWs3UyVymept78ynLhyYw"
 
 # ጀሚኒን ማዋቀር
 genai.configure(api_key=GEMINI_API_KEY)
@@ -52,6 +52,7 @@ if __name__ == "__main__":
     bot.remove_webhook()
     bot.set_webhook(url=RENDER_URL)
     
-    # ፕላትፎርሙ በሚሰጠው ፖርት ሰርቨሩን ማስነሳት
+    # ሰርቨሩን ማስነሳት
     port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port)
+
