@@ -1,12 +1,11 @@
 import os
-from flask import Flask
-from threading import Thread
 import telebot
 import google.generativeai as genai
+from flask import Flask, request
 
-# ቶከኖቹን በቀጥታ እዚህ ጋር ያስገቡ
-TELEGRAM_BOT_TOKEN = "8760230059:AAFLTDZjIrigBf4YSf_NWl0Qg1WbRldA4rY"
-GEMINI_API_KEY = "AQ.Ab8RN6IApOru0HbLxYhnMJM_YVwq-IWs3UyVymept78ynLhyYw"
+# ኤንቫይሮመንት ቫሪያብሎችን ከ Render ማንበብ (ቦቱን እና ጀሚኒን ከ Render ማስተካከል)
+TELEGRAM_BOT_TOKEN = os.getenv("8760230059:AAGp2ih2at7A6-EDKeQalqedOCe9tbXc1dI")
+GEMINI_API_KEY = os.getenv("AQ.Ab8RN6IApOru0HbLxYhnMJM_YVwq-IWs3UyVymept78ynLhyYw")
 
 # ጀሚኒን ማዋቀር
 genai.configure(api_key=GEMINI_API_KEY)
@@ -15,21 +14,22 @@ model = genai.GenerativeModel('gemini-1.5-flash')
 # ቴሌግራም ቦት ማዋቀር
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 
-# የፍላስክ ሰርቨር (Render Port Timeout እንዳይፈጥር)
-app = Flask('')
+# የፍላስክ ሰርቨር ማዋቀር
+app = Flask(__name__)
 
 @app.route('/')
 def home():
     return "Bot is alive and running!"
 
-def run():
-    app.run(host='0.0.0.0', port=8080)
+# ቴሌግራም መልዕክቶችን በ Webhook የሚቀበልበት ራውት
+@app.route(f'/{TELEGRAM_BOT_TOKEN}', methods=['POST'])
+def webhook():
+    json_str = request.get_data().decode('UTF-8')
+    update = telebot.types.Update.de_json(json_str)
+    bot.process_new_updates([update])
+    return "!", 200
 
-def keep_alive():
-    t = Thread(target=run)
-    t.start()
-
-# የቴሌግራም መልዕክት መቀበያ
+# የቴሌግራም መልዕክት ማስተናገጃ ሃንድለሮች
 @bot.message_handler(commands=['start'])
 def send_welcome(welcome_message):
     bot.reply_to(welcome_message, "ሰላም! የፋይናንስ ማርኬት ትንታኔ ቦትዎ ዝግጁ ነው። እንደ 'Gold' ወይም 'BTC' ያሉትን ስሞች በመጻፍ ትንታኔ ማግኘት ይችላሉ።")
@@ -38,7 +38,7 @@ def send_welcome(welcome_message):
 def analyze_market(message):
     user_query = message.text
     bot.reply_to(message, f"'{user_query}' የገበያ ትንታኔ በመዘጋጀት ላይ ነው፣ እባክዎ ትንሽ ይጠብቁ...")
-    
+
     try:
         prompt = f"Provide a detailed financial market analysis, technical indicators (RSI, MACD), and buy/sell levels for: {user_query}. Respond in Amharic."
         response = model.generate_content(prompt)
@@ -47,8 +47,11 @@ def analyze_market(message):
         bot.reply_to(message, "ይቅርታ፣ ትንታኔውን ማዘጋጀት አልተቻለም። እባክዎ ትንሽ ቆይተው እንደገና ይሞክሩ።")
 
 if __name__ == "__main__":
-    keep_alive()
-    print("ቦቱ በሰላም ስራ ጀምሯል...")
-
-bot.infinity_polling(skip_pending=True)
-
+    # የቴሌግራም ዌብሁክን ከ Render URL ጋር ማገናኘት
+    RENDER_URL = f"https://crypto-bott-iyf3.onrender.com/{TELEGRAM_BOT_TOKEN}"
+    bot.remove_webhook()
+    bot.set_webhook(url=RENDER_URL)
+    
+    # ፕላትፎርሙ በሚሰጠው ፖርት ሰርቨሩን ማስነሳት
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host='0.0.0.0', port=port)
