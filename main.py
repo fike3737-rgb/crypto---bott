@@ -3,9 +3,9 @@ import telebot
 import google.generativeai as genai
 from flask import Flask, request
 
-# ቶከኖቹን እና ኪዩን በቀጥታ እዚህ ጋር እናስገባለን (ግጭት እንዳይፈጥር)
-TELEGRAM_BOT_TOKEN = "8760230059:AAGp2ih2at7A6-EDKeQalqed0Ce9tbxA"
-GEMINI_API_KEY = "AQ.Ab8RN6IApOru0HbLxYhnMJM_YVwq-IWs3UyVymept78ynLhyYw"
+# ቶከኖቹን ከ Render Environment Variables ማንበብ
+TELEGRAM_BOT_TOKEN = os.getenv("8760230059:AAHp4HigHGlM1X9PR0rGjKYML4N4wI1hsTM")
+GEMINI_API_KEY = os.getenv("AQ.Ab8RN6IApOru0HbLxYhnMJM_YVwq-IWs3UyVymept78ynLhyYw")
 
 # ጀሚኒን ማዋቀር
 genai.configure(api_key=GEMINI_API_KEY)
