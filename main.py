@@ -3,9 +3,8 @@ import telebot
 import requests
 from flask import Flask, request as flask_request
 
-# አዲሱ የቴሌግራም ቦት ቶከን
 TELEGRAM_BOT_TOKEN = "8703693504:AAGID7NfYlxJG8WGTvyC_SoJhQODttmokM4"
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY") # Render ላይ ያስቀመጡት በ AQ. የሚጀምረው ቁልፍ
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 app = Flask(__name__)
@@ -44,8 +43,18 @@ def analyze_market_text(message):
         response = requests.post(url, headers=headers, json=payload)
         res_data = response.json()
         
-        reply_text = res_data['candidates'][0]['content']['parts'][0]['text']
-        bot.reply_to(message, reply_text)
+        # 'candidates' መኖሩን እና ባዶ አለመሆኑን ማረጋገጫ
+        if 'candidates' in res_data and len(res_data['candidates']) > 0:
+            candidate = res_data['candidates'][0]
+            if 'content' in candidate and 'parts' in candidate['content']:
+                reply_text = candidate['content']['parts'][0]['text']
+                bot.reply_to(message, reply_text)
+            else:
+                bot.reply_to(message, "ይቅርታ, የጀሚኒ መልስ ትክክለኛ ቅርጸት የለውም።")
+        else:
+            # የደህንነት ማጣሪያ (Safety) ሊገድበው ሲችል የሚመጣ መልእክት
+            bot.reply_to(message, f"የተገኘው ምላሽ በደህንነት ወይም በሌላ ምክንያት ታግዷል። ዝርዝር: {res_data}")
+            
     except Exception as e:
         bot.reply_to(message, f"ስህተት አጋጥሟል: {str(e)}")
 
