@@ -1,11 +1,12 @@
 import os
 from openai import OpenAI
-
 # Render ላይ ያስገባነውን ቁልፍ እራሱ በራሱ እንዲቀበለው ማድረግ ይቻላል
 client = OpenAI(
+    client = OpenAI(
     base_url="https://api.groq.com/openai/v1",
-    api_key=os.environ.get("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"),
+    api_key=os.environ.get("GROQ_API_KEY")
 )
+
 
 response = client.chat.completions.create(
     model="llama-3.1-70b-versatile",
