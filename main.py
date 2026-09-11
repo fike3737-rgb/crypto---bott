@@ -4,7 +4,7 @@ import google.generativeai as genai
 from flask import Flask, request
 
 # 1. የቦት ቶከን እና የጀሚኒ ኪይ
-TELEGRAM_BOT_TOKEN = "8703693504:AAGRVPnzjB49_tHWmE1WyasGuhTgCfzLMFU"
+TELEGRAM_BOT_TOKEN = "8703693504:AAGID7NfYlxJG8WGTvyC_SoJhQODttmokM4"
 GEMINI_API_KEY = "AQ.Ab8RN6IApOru0HbLxYhnMJM_YVwq-IWs3UyVymept78ynLhyYw"
 
 genai.configure(api_key=GEMINI_API_KEY)
