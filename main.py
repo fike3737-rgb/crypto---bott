@@ -1,7 +1,6 @@
-from openai import OpenAI
+from groq import Groq
 
-client = OpenAI(
-    base_url="https://api.groq.com/openai/v1",
+client = Groq(
     api_key="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"
 )
 
