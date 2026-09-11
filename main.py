@@ -1,9 +1,8 @@
-import os
 from openai import OpenAI
 
 client = OpenAI(
     base_url="https://api.groq.com/openai/v1",
-    api_key=os.environ.get("GROQ_API_KEY")
+    api_key="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"
 )
 
 response = client.chat.completions.create(
