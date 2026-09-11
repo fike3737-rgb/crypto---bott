@@ -3,13 +3,12 @@ import telebot
 import google.generativeai as genai
 from flask import Flask, request
 
-# 1. የቦት ቶከን እና የጀሚኒ ኪይ
+# የቦት ቶከን እና አዲሱ የጀሚኒ ኪይ
 TELEGRAM_BOT_TOKEN = "8703693504:AAGID7NfYlxJG8WGTvyC_SoJhQODttmokM4"
-GEMINI_API_KEY = "AQ.Ab8RN6IApOru0HbLxYhnMJM_YVwq-IWs3UyVymept78ynLhyYw"
+GEMINI_API_KEY = "AQ.Ab8RN6IzzeWxAoC0Bddx7m72ihlqj6pTyTWhiKORuWWTe-CnuA"
 
 genai.configure(api_key=GEMINI_API_KEY)
 
-# 2. ቦቱን እና ፍላስክ ሰርቨሩን ማስጀመር (ይህ ነበር የጎደለው)
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 app = Flask(__name__)
 
@@ -28,7 +27,7 @@ def webhook():
 def send_welcome(message):
     bot.reply_to(message, "ሰላም! የፋይናንስ ማርኬት ትንታኔ ቦትዎ ዝግጁ ነው። ጽሑፍ መጻፍ ወይም ፎቶ ከነ ሐሳቡ (Caption) አብሮ መላክ ይችላሉ።")
 
-# 3. የጽሑፍ ማርኬት ትንታኔ ክፍል
+# የጽሑፍ ማርኬት ትንታኔ ክፍል
 @bot.message_handler(func=lambda message: True, content_types=['text'])
 def analyze_market_text(message):
     user_query = message.text
@@ -48,4 +47,5 @@ if __name__ == "__main__":
     
     port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port)
+
 
