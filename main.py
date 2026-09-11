@@ -1,3 +1,4 @@
+import os
 from openai import OpenAI
 
 # Render ላይ ያስገባነውን ቁልፍ እራሱ በራሱ እንዲቀበለው ማድረግ ይቻላል
