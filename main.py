@@ -2,7 +2,6 @@ import os
 import telebot
 import google.generativeai as genai
 from flask import Flask, request
-from PIL import Image
 
 # የቦት ቶከን እና የጀሚኒ ኪይ
 TELEGRAM_BOT_TOKEN = "8703693504:AAGRVPnzjB49_tHWmE1WyasGuhTgCfzLMFU"
@@ -41,7 +40,7 @@ def analyze_market_text(message):
     except Exception as e:
         bot.reply_to(message, "ይቅርታ፣ ትንታኔውን ማዘጋጀት አልተቻለም። እባክዎ ትንሽ ቆይተው እንደገና ይሞክሩ።")
 
-# 2. ፎቶ እና ጽሑፍ (Caption) በአንድ ላይ ሲልኩ የሚሰራ ክፍል
+# 2. ፎቶ እና ጽሑፍ (Caption) በአንድ ላይ ሲልኩ የሚሰራ ክፍል (ያንዳች ተጨማሪ ላይብረሪ)
 @bot.message_handler(content_types=['photo'])
 def handle_photo_with_caption(message):
     user_caption = message.caption if message.caption else "Analyze this financial chart"
@@ -54,9 +53,11 @@ def handle_photo_with_caption(message):
         with open(image_path, 'wb') as new_file:
             new_file.write(downloaded_file)
             
-        img = Image.open(image_path)
+        # ፋይሉን በቀጥታ ለጀሚኒ multimodal ማስተላለፍ
+        sample_file = genai.upload_file(path=image_path)
+        
         prompt = f"User instruction: {user_caption}. Provide a detailed financial market analysis, support/resistance levels, and recommendations based on this chart and instruction. Respond in Amharic."
-        response = model.generate_content([prompt, img])
+        response = model.generate_content([sample_file, prompt])
         
         bot.reply_to(message, response.text)
     except Exception as e:
