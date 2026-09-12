@@ -1,1 +1,2 @@
+groq
 python-telegram-bot[webhooks]
