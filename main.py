@@ -8,7 +8,7 @@ from groq import Groq
 TELEGRAM_BOT_TOKEN = "8703693504:AAGID7NfYlxJG8WGTvyC_SoJhQODttmokM4"
 GROQ_API_KEY = "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"
 
-# Groq ማዋቀር (በትክክለኛው የሞዴል ስም llama-3.3-70b-versatile)
+# Groq ማዋቀር (በትክክለኛው የሞዴል ስም)
 client = Groq(api_key=GROQ_API_KEY)
 
 # ቴሌግራም ቦት ማዋቀር
@@ -55,11 +55,7 @@ def analyze_market(message):
 
 if __name__ == "__main__":
     keep_alive()
-      print("ቦቱ በሰላም ስራ ጀምሯል...")
-    # የነበረውን Webhook እናጠፋለን
+    print("ቦቱ በሰላም ስራ ጀምሯል...")
     bot.remove_webhook()
-    # ከዚያም ፖሊንግ እንጀምራለን
     bot.infinity_polling(skip_pending=True)
-
-
 
