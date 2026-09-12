@@ -35,7 +35,7 @@ def analyze_market(message):
                     "content": f"Provide a detailed financial market analysis and technical levels for: {user_query}. Respond in English.",
                 }
             ],
-            model = "mixtral-8x7b-32768",
+            model = "llama-3.3-70b-versatile",
         )
         response_text = chat_completion.choices[0].message.content
         bot.reply_to(message, response_text)
