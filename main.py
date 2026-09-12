@@ -5,7 +5,7 @@ import telebot
 from groq import Groq
 
 # ትክክለኛውን የቦት ቶከን እና የ Groq ኪይ እዚህ ያስገቡ
-TELEGRAM_BOT_TOKEN = "8703693504:AAGID7NfYIxJG8WGTvyC_SoJhQODttmokM4"
+TELEGRAM_BOT_TOKEN = "8703693504:AAFWX9j2tp5M2tTjfXeHL2U1R5N4DAW0PtI"
 GROQ_API_KEY = "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"
 
 client = Groq(api_key=GROQ_API_KEY)
