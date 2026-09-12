@@ -1,9 +1,11 @@
 import os
+import threading
 from flask import Flask
 import telebot
 from groq import Groq
 
-TELEGRAM_BOT_TOKEN = "8703693504:AAGID7NfYlxJG8WGTvyC_SoJhQODttmokM4"
+# ትክክለኛውን የቦት ቶከን እና የ Groq ኪይ እዚህ ያስገቡ
+TELEGRAM_BOT_TOKEN = "8703693504:AAGID7NfYIxJG8WGTvyC_SoJhQODttmokM4"
 GROQ_API_KEY = "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"
 
 client = Groq(api_key=GROQ_API_KEY)
@@ -11,9 +13,10 @@ bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 
 app = Flask(__name__)
 
+# ሬንደር ፖርቱን እንዲያገኘው ዌብ ሰርቪስ ራውት
 @app.route('/')
 def home():
-    return "Web Service is active and running!"
+    return "Bot is running live!"
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
@@ -39,12 +42,15 @@ def analyze_market(message):
     except Exception as e:
         bot.reply_to(message, f"Error: {str(e)}")
 
+# ቦቱን ከበስተጀርባ በክር (Thread) ማስኬጃ
+def run_bot():
+    bot.infinity_polling()
+
 if __name__ == "__main__":
-    # Render የሚሰጠውን ፖርት በራስ ሰር እንዲወስድ ይደረጋል
-    port = int(os.environ.get("PORT", 10000))
+    # ቴሌግራም ቦቱን ከፍላስክ ጋር በአንድ ላይ እናስጀምራለን (Webhook አያስፈልግም)
+    t = threading.Thread(target=run_bot)
+    t.start()
     
-    # ቴሌግራም ፖሊንግን በሌላ ፕሬድ (Thread) ማስጀመር ይቻላል ወይም 
-    # ለዌብ ሰርቪስ በአስተማማኝ ሁኔታ ዌብሁክ (Webhook) መጠቀም ይመረጣል
-    # ነገር ግን አሁን ሰርቨሩ እንዲነቃ ፍላስክ ብቻውን ይሮጣል
+    port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
 
