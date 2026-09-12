@@ -4,7 +4,7 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
 
 # ቶከንዎን እና አፒአይ ቁልፍዎን በቀጥታ እዚህ ጋር በጽሁፍ ያስገቡ
-TELEGRAM_BOT_TOKEN = "8703693504:AAH8dc8T9EVG2gRlIenG9ZsDYcZtIDEw48I"
+TELEGRAM_BOT_TOKEN = "8703693504:AAE5dfXRocJZupznR2k5Xd3EecO2n8KDCfI"
 GROQ_API_KEY = "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"
 RENDER_EXTERNAL_URL = "https://crypto---bott.onrender.com"
 
