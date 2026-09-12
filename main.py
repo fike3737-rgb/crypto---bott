@@ -8,7 +8,7 @@ from groq import Groq
 TELEGRAM_BOT_TOKEN = "8703693504:AAGID7NfYlxJG8WGTvyC_SoJhQODttmokM4"
 GROQ_API_KEY = "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"
 
-# Groq ማዋቀር (በትክክለኛው የሞዴል ስም)
+# Groq ማዋቀር
 client = Groq(api_key=GROQ_API_KEY)
 
 # ቴሌግራም ቦት ማዋቀር
@@ -46,7 +46,7 @@ def analyze_market(message):
                     "content": f"Provide a detailed financial market analysis, technical indicators (RSI, MACD), and buy/sell levels for: {user_query}. Respond in Amharic.",
                 }
             ],
-            model="llama-3.3-70b-versatile",
+            model="llama3-70b-8192",
         )
         response_text = chat_completion.choices[0].message.content
         bot.reply_to(message, response_text)
