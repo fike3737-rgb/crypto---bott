@@ -1,16 +1,26 @@
 import os
-from telegram.ext import ApplicationBuilder
+from telegram import Update
+from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
 
-# 1. ፖርቱን ከሬንደር መቀበል
 PORT = int(os.environ.get('PORT', '8443'))
-
-# 2. የቦት ቶከን
 BOT_TOKEN = "8703693504:AAGP3Y9h2kukybDwSkYYMB4RjfaENQi_4qk"
 
-# 3. application የሚለውን ተለዋዋጭ መፍጠር (እዚህ ጋር ነው የጎደለው)
+# 1. /start ሲሉ የሚሰጠው መልስ
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("ሰላም! የ ክሪፕቶ መረጃ ቦትዎ በስኬት ተጀምሯል።")
+
+# 2. ተራ ጽሑፍ ሲጽፉ የሚመልሰው (በ AI ወይም በራሱ)
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_text = update.message.text
+    await update.message.reply_text(f"የላኩትን መልዕክት ተቀብያለሁ: {user_text}")
+
 application = ApplicationBuilder().token(BOT_TOKEN).build()
 
-# 4. ዌብሆክን ማስጀመር
+# ሃንድለሮችን መጨመር
+application.add_handler(CommandHandler("start", start))
+application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+
+# ዌብሆክን ማስጀመር
 application.run_webhook(
     listen="0.0.0.0",
     port=PORT,
