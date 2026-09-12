@@ -14,7 +14,7 @@ client = Groq(api_key=GROQ_API_KEY)
 # ቴሌግራም ቦት ማዋቀር
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 
-# የፍላስክ ሰርቨር (Render Port Timeout እንዳይፈጥር)
+# የፍላስክ ሰርቨር
 app = Flask('')
 
 @app.route('/')
@@ -46,7 +46,7 @@ def analyze_market(message):
                     "content": f"Provide a detailed financial market analysis, technical indicators (RSI, MACD), and buy/sell levels for: {user_query}. Respond in Amharic.",
                 }
             ],
-            model="llama3-70b-8192",
+            model="llama-3.3-70b-versatile",
         )
         response_text = chat_completion.choices[0].message.content
         bot.reply_to(message, response_text)
