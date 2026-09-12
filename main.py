@@ -5,7 +5,7 @@ from telegram.ext import ApplicationBuilder
 PORT = int(os.environ.get('PORT', '8443'))
 
 # 2. የቦት ቶከን
-BOT_TOKEN = "8703693504:AAE5dfXRocJZupznR2k5Xd3EecO2n8KDCfI"
+BOT_TOKEN = "8703693504:AAGP3Y9h2kukybDwSkYYMB4RjfaENQi_4qk"
 
 # 3. application የሚለውን ተለዋዋጭ መፍጠር (እዚህ ጋር ነው የጎደለው)
 application = ApplicationBuilder().token(BOT_TOKEN).build()
