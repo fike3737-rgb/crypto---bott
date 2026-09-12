@@ -36,10 +36,16 @@ def analyze_market(message):
             messages=[
                 {
                     "role": "user",
-                    "content": f"Provide a detailed financial market analysis and buy/sell levels for: {user_query}. Respond in Amharic."
+                    "content": f"Provide a detailed financial market analysis for: {user_query}. Respond in English.",
                 }
             ],
-            model="llama-3.1-8b-instant"
+            model="llama3-8b-8192",
+                
+                    
+                    
+                
+            
+            
         )
         response_text = chat_completion.choices[0].message.content
         bot.reply_to(message, response_text)
