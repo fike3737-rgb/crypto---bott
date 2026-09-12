@@ -46,7 +46,7 @@ def analyze_market(message):
                     "content": f"Provide a detailed financial market analysis, technical indicators (RSI, MACD), and buy/sell levels for: {user_query}. Respond in Amharic.",
                 }
             ],
-            model="llama-3-70b-versatile",
+            model = "llama-3.1-8b-instant",
         )
         response_text = chat_completion.choices[0].message.content
         bot.reply_to(message, response_text)
