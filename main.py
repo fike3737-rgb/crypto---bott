@@ -1,56 +1,49 @@
 import os
-import threading
-from flask import Flask
-import telebot
-from groq import Groq
+import groq
+from telegram import Update
+from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
 
-# ትክክለኛውን የቦት ቶከን እና የ Groq ኪይ እዚህ ያስገቡ
-TELEGRAM_BOT_TOKEN = "8703693504:AAFWX9j2tp5M2tTjfXeHL2U1R5N4DAW0PtI"
+# 1. የ Groq API ኪ (API Key) እና የቴሌግራም ቶከን እዚህ ያስገቡ
 GROQ_API_KEY = "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"
+TELEGRAM_BOT_TOKEN = "8703693504:AAFWX9j2tp5M2tTjfXeHL2U1R5N4DAW0PtI"
 
-client = Groq(api_key=GROQ_API_KEY)
-bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
+# 2. የ Groq ክላይንት ማዋቀር
+client = groq.Groq(api_key=GROQ_API_KEY)
 
-app = Flask(__name__)
+# 3. አሁን የሚሠራውን ሞዴል በራሱ በሰርቨሩ ላይ ቃኝቶ እንዲወስድ ማድረግ (Model Not Found ስህተትን ለማስቀረት)
+try:
+    available_models = [m.id for m in client.models.list()]
+    active_model = next((m for m in available_models if "llama" in m), available_models[0])
+except Exception:
+    active_model = "llama-3.1-8b-instant"
 
-# ሬንደር ፖርቱን እንዲያገኘው ዌብ ሰርቪስ ራውት
-@app.route('/')
-def home():
-    return "Bot is running live!"
-
-@bot.message_handler(commands=['start'])
-def send_welcome(message):
-    bot.reply_to(message, "Hello! Bot is ready. Send a market name like 'Gold' or 'BTC'.")
-
-@bot.message_handler(func=lambda message: True)
-def analyze_market(message):
-    user_query = message.text
-    bot.reply_to(message, f"Analyzing '{user_query}'... Please wait.")
+# 4. መልዕክት ሲመጣ የሚሰራው ዋናው ክፍል
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
+    await update.message.reply_text(f"Analyzing '{text}'... Please wait.")
     
     try:
-        chat_completion = client.chat.completions.create(
+        # 5. ትንታኔውን ለማግኘት Groqን መጠየቅ (በራሱ active_model ይጠቀማል)
+        response = client.chat.completions.create(
+            model=active_model,  # <-- ራሱ አሁን የሚሠራውን ሞዴል ይመርጣል
             messages=[
-                {
-                    "role": "user",
-                    "content": f"Provide a detailed financial market analysis and technical levels for: {user_query}. Respond in English.",
-                }
-            ],
-            model = "llama-3.1-8b-instant",
+                {"role": "user", "content": f"Provide financial market analysis for: {text}"}
+            ]
         )
-        response_text = chat_completion.choices[0].message.content
-        bot.reply_to(message, response_text)
+        reply_text = response.choices[0].message.content
+        await update.message.reply_text(reply_text)
+        
     except Exception as e:
-        bot.reply_to(message, f"Error: {str(e)}")
+        await update.message.reply_text(f"Error: {e}")
 
-# ቦቱን ከበስተጀርባ በክር (Thread) ማስኬጃ
-def run_bot():
-    bot.infinity_polling()
-
-if __name__ == "__main__":
-    # ቴሌግራም ቦቱን ከፍላስክ ጋር በአንድ ላይ እናስጀምራለን (Webhook አያስፈልግም)
-    t = threading.Thread(target=run_bot)
-    t.start()
+# 6. ቦቱን ማስጀመር
+def main():
+    app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
+    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
     
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+    print("Bot is running...")
+    app.run_polling()
+
+if __name__ == '__main__':
+    main()
 
