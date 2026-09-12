@@ -3,10 +3,10 @@ import groq
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
 
-# 1. ከ Render Environment Variables እንዲያነብ ማድረግ
-GROQ_API_KEY = os.environ.get("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")
-TELEGRAM_BOT_TOKEN = os.environ.get("8703693504:AAH8dc8T9EVG2gRlIenG9ZsDYcZtIDEw48I")
-RENDER_EXTERNAL_URL = "https://crypto---bott.onrender.com"  # የሰርቨርዎ ትክክለኛ ሊንክ
+# ቶከንዎን እና አፒአይ ቁልፍዎን በቀጥታ እዚህ ጋር በጽሁፍ ያስገቡ
+TELEGRAM_BOT_TOKEN = "8703693504:AAH8dc8T9EVG2gRlIenG9ZsDYcZtIDEw48I"
+GROQ_API_KEY = "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"
+RENDER_EXTERNAL_URL = "https://crypto---bott.onrender.com"
 
 client = groq.Groq(api_key=GROQ_API_KEY)
 
