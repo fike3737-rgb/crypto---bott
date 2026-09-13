@@ -23,9 +23,11 @@ from telegram import Bot
 # CONFIG
 # ============================================================
 
-BOT_TOKEN = os.getenv("8703693504:AAGP3Y9h2kukybDwSkYYMB4RjfaENQi_4qk")
-CHAT_ID = os.getenv("8234392742")
-TWELVE_DATA_KEY = os.getenv("130dbca5cb0f47409783fae0366233eb")
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+TWELVE_DATA_KEY = os.getenv("TWELVE_DATA_KEY")
+
+
 
 TIMEFRAME = "15min"
 CHECK_SECONDS = 60
