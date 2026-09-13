@@ -3,8 +3,8 @@ from flask import Flask, request
 import telebot
 from groq import Groq
 
-TELEGRAM_BOT_TOKEN = "8703693504:AAGID7NfYIxJG8WGTvyC_SoJhQODttmokM4"
-GROQ_API_KEY = "YOUR_GROQ_API_KEY_HERE"
+TELEGRAM_BOT_TOKEN = os.getenv("8703693504:AAGP3Y9h2kukybDwSkYYMB4RjfaENQi_4qk")
+GROQ_API_KEY = os.getenv("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")
 
 client = Groq(api_key=GROQ_API_KEY)
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
