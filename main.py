@@ -1041,7 +1041,7 @@ def format_analysis(result):
         for x in result["reasons"]
     
 
-    return )
+    return (
         f"📊 {symbol}\n\n"
 
         f"Market: 🟢 GOOD\n"
