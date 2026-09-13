@@ -14,13 +14,14 @@ import pandas as pd
 
 from groq import Groq
 
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application,
     CommandHandler,
     MessageHandler,
     ContextTypes,
     filters,
+    CallbackQueryHandler,
 )
 
 
@@ -42,7 +43,7 @@ TIMEFRAME = "15min"
 CANDLE_LIMIT = 120
 
 GOOD_MARKET = 70
-MIN_PIPS = 50
+MIN_PIPS = 100
 
 # Groq vision model
 VISION_MODEL = "qwen/qwen3.6-27b"
@@ -95,7 +96,33 @@ METAL_SYMBOLS = [
     "XAG/USD",
 ]
 
-STATIC_SCAN_SYMBOLS = FOREX_SYMBOLS + METAL_SYMBOLS
+CRYPTO_SYMBOLS = [
+    "BTCUSDT",
+    "ETHUSDT",
+    "BNBUSDT",
+    "SOLUSDT",
+    "XRPUSDT",
+    "ADAUSDT",
+    "DOGEUSDT",
+    "AVAXUSDT",
+    "DOTUSDT",
+    "LINKUSDT",
+    "LTCUSDT",
+    "BCHUSDT",
+    "TRXUSDT",
+    "ATOMUSDT",
+    "ETCUSDT",
+    "FILUSDT",
+    "NEARUSDT",
+    "APTUSDT",
+    "ARBUSDT",
+    "OPUSDT",
+]
+
+STATIC_SCAN_SYMBOLS = FOREX_SYMBOLS + METAL_SYMBOLS + CRYPTO_SYMBOLS
+
+# Symbols shown as clickable Telegram buttons.
+AVAILABLE_SYMBOLS = STATIC_SCAN_SYMBOLS
 
 
 # =========================================================
@@ -868,7 +895,7 @@ def analyze_market(
         target_factor = 1.8
 
     # -----------------------------------------------------
-    # FX / GOLD MINIMUM 50 PIPS
+    # FX / GOLD MINIMUM 100 PIPS
     # -----------------------------------------------------
 
     pip = pip_size(symbol)
@@ -1061,17 +1088,68 @@ def format_analysis(result):
 # TELEGRAM COMMANDS / BOT
 # =========================================================
 
+def symbol_keyboard():
+    buttons = []
+    for i in range(0, len(AVAILABLE_SYMBOLS), 2):
+        row = []
+        for symbol in AVAILABLE_SYMBOLS[i:i + 2]:
+            row.append(InlineKeyboardButton(
+                symbol,
+                callback_data=f"symbol:{symbol}"
+            ))
+        buttons.append(row)
+
+    buttons.append([
+        InlineKeyboardButton(
+            "🔎 ALL SYMBOLS",
+            callback_data="scan_all"
+        )
+    ])
+    return InlineKeyboardMarkup(buttons)
+
+
 async def start_command(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ):
     await update.message.reply_text(
         "🤖 CryptoFlowBot is running.\n\n"
-        "Send a symbol such as BTCUSDT or EUR/USD.\n"
-        "You can also use:\n"
-        "/analyze BTCUSDT\n"
-        "/analyze EUR/USD"
+        "👇 Choose a symbol below, or press ALL SYMBOLS to scan the full configured list.\n\n"
+        "You can still type a symbol manually, for example BTCUSDT or EUR/USD.",
+        reply_markup=symbol_keyboard()
     )
+
+
+async def send_analysis(
+    message,
+    symbol: str
+):
+    symbol = symbol.strip()
+    if not symbol:
+        await message.reply_text(
+            "Please choose or send a symbol.",
+            reply_markup=symbol_keyboard()
+        )
+        return
+
+    try:
+        normalized = normalize_symbol(symbol)
+        df = await asyncio.to_thread(get_market_data, normalized)
+        result = await asyncio.to_thread(
+            analyze_market, df, normalized
+        )
+        text = format_analysis(result)
+        await message.reply_text(
+            text,
+            reply_markup=symbol_keyboard()
+        )
+    except Exception as e:
+        print(f"Analysis error for {symbol}: {e}")
+        await message.reply_text(
+            f"❌ Could not analyze {symbol}.\n"
+            f"Error: {e}",
+            reply_markup=symbol_keyboard()
+        )
 
 
 async def analyze_symbol(
@@ -1079,26 +1157,7 @@ async def analyze_symbol(
     context: ContextTypes.DEFAULT_TYPE,
     symbol: str
 ):
-    symbol = symbol.strip()
-
-    if not symbol:
-        await update.message.reply_text(
-            "Please send a symbol, for example BTCUSDT or EUR/USD."
-        )
-        return
-
-    try:
-        normalized = normalize_symbol(symbol)
-        df = get_market_data(normalized)
-        result = analyze_market(df, normalized)
-        text = format_analysis(result)
-        await update.message.reply_text(text)
-    except Exception as e:
-        print(f"Analysis error for {symbol}: {e}")
-        await update.message.reply_text(
-            f"❌ Could not analyze {symbol}.\n"
-            f"Error: {e}"
-        )
+    await send_analysis(update.message, symbol)
 
 
 async def analyze_command(
@@ -1107,13 +1166,138 @@ async def analyze_command(
 ):
     if not context.args:
         await update.message.reply_text(
-            "Usage: /analyze BTCUSDT\n"
-            "or: /analyze EUR/USD"
+            "👇 Choose a symbol below or use: /analyze BTCUSDT",
+            reply_markup=symbol_keyboard()
         )
         return
 
     symbol = " ".join(context.args)
     await analyze_symbol(update, context, symbol)
+
+
+async def scan_all_symbols():
+    results = []
+    symbols = AVAILABLE_SYMBOLS[:]
+
+    if MAX_SCAN_SYMBOLS > 0:
+        symbols = symbols[:MAX_SCAN_SYMBOLS]
+
+    for symbol in symbols:
+        try:
+            normalized = normalize_symbol(symbol)
+            df = await asyncio.to_thread(
+                get_market_data, normalized
+            )
+            result = await asyncio.to_thread(
+                analyze_market, df, normalized
+            )
+            results.append(result)
+        except Exception as e:
+            print(f"Scan error for {symbol}: {e}")
+
+        if SCAN_DELAY > 0:
+            await asyncio.sleep(SCAN_DELAY)
+
+    results.sort(
+        key=lambda x: x.get("confidence", 0),
+        reverse=True
+    )
+    return results
+
+
+def format_scan_results(results):
+    if not results:
+        return (
+            "🔎 ALL SYMBOLS SCAN\n\n"
+            "❌ No symbols could be analyzed right now."
+        )
+
+    good = [r for r in results if r.get("market") == "GOOD"]
+    selected = good[:SCAN_TOP_RESULTS] if good else results[:SCAN_TOP_RESULTS]
+
+    lines = [
+        "🔎 ALL SYMBOLS SCAN",
+        "",
+        f"Analyzed: {len(results)} symbols",
+        f"Good setups: {len(good)}",
+        "",
+    ]
+
+    if good:
+        lines.append("🟢 BEST SETUPS")
+    else:
+        lines.append("⚠️ NO GOOD SETUP — TOP RESULTS")
+
+    for i, r in enumerate(selected, 1):
+        direction = r.get("direction", "-")
+        market = r.get("market", "-")
+        confidence = r.get("confidence", 0)
+        symbol = r.get("symbol", "-")
+        icon = "🟢" if direction == "BUY" else "🔴" if direction == "SELL" else "⚪"
+        lines.append(
+            f"{i}. {icon} {symbol} | {direction} | "
+            f"{confidence}% | {market}"
+        )
+
+    lines.extend([
+        "",
+        "Tap a symbol below for the full entry / SL / TP setup."
+    ])
+    return "\n".join(lines)
+
+
+async def button_handler(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+    query = update.callback_query
+    if not query:
+        return
+
+    await query.answer()
+
+    if query.data == "scan_all":
+        await query.edit_message_text(
+            "⏳ Scanning all configured symbols...\n"
+            "Please wait a moment."
+        )
+        try:
+            results = await scan_all_symbols()
+            text = format_scan_results(results)
+            await query.message.reply_text(
+                text,
+                reply_markup=symbol_keyboard()
+            )
+        except Exception as e:
+            print(f"All-symbol scan error: {e}")
+            await query.message.reply_text(
+                f"❌ ALL SYMBOLS scan failed.\nError: {e}",
+                reply_markup=symbol_keyboard()
+            )
+        return
+
+    if query.data.startswith("symbol:"):
+        symbol = query.data.split(":", 1)[1]
+        await query.edit_message_text(
+            f"⏳ Analyzing {symbol}..."
+        )
+        try:
+            normalized = normalize_symbol(symbol)
+            df = await asyncio.to_thread(get_market_data, normalized)
+            result = await asyncio.to_thread(
+                analyze_market, df, normalized
+            )
+            text = format_analysis(result)
+            await query.message.reply_text(
+                text,
+                reply_markup=symbol_keyboard()
+            )
+        except Exception as e:
+            print(f"Button analysis error for {symbol}: {e}")
+            await query.message.reply_text(
+                f"❌ Could not analyze {symbol}.\nError: {e}",
+                reply_markup=symbol_keyboard()
+            )
 
 
 async def text_handler(
@@ -1129,7 +1313,6 @@ async def text_handler(
         return
 
     await analyze_symbol(update, context, symbol)
-
 
 def main():
     if not BOT_TOKEN:
@@ -1149,6 +1332,9 @@ def main():
     )
     application.add_handler(
         CommandHandler("analyze", analyze_command)
+    )
+    application.add_handler(
+        CallbackQueryHandler(button_handler)
     )
     application.add_handler(
         MessageHandler(
