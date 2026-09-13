@@ -1036,34 +1036,29 @@ def format_analysis(result):
 
         action = "🔴 SELL LIMIT"
 
-    reason_text = "\n".join(
+   reason_text = "\n".join(
         "• " + x
         for x in result["reasons"]
-    
+    )
 
-    return )
+    return (
         f"📊 {symbol}\n\n"
         f"Market: 🟢 GOOD\n"
         f"Confidence: {confidence}%\n"
         f"Signal: {action}\n\n"
         f"Current Price: "
-        f"{format_price(price)}\n"
-        
-
+        f"{format_price(price)}\n\n"
         f"Limit Entry: "
         f"{format_price(limit_entry)}\n"
-
         f"SL: "
         f"{format_price(sl)}\n\n"
-
         f"🎯 TP1: "
         f"{format_price(tp1)}\n"
-
         f"🎯 TP2: "
         f"{format_price(tp2)}\n"
-
         f"🎯 TP3: "
         f"{format_price(tp3)}\n\n"
-
         f"Risk/Reward: "
         f"1:{rr:.2f}\n\n"
+        f"Reasons:\n{reason_text}"
+    ) 
