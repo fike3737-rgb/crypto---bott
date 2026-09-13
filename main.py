@@ -76,9 +76,10 @@ bot = Bot(token=BOT_TOKEN)
 
 def send_telegram(message: str):
     try:
-        bot.send_message(
+        async def send_alert():
+            await bot.send_message(
             chat_id=CHAT_ID,
-            text=message
+            text="Hello"
         )
         print("Telegram sent.")
     except Exception as e:
