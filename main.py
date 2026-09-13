@@ -1,30 +1,52 @@
 import os
-from telegram import Update
-from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
+from flask import Flask, request
+import telebot
+from groq import Groq
 
-PORT = int(os.environ.get('PORT', '8443'))
-BOT_TOKEN = "8703693504:AAGP3Y9h2kukybDwSkYYMB4RjfaENQi_4qk"
+TELEGRAM_BOT_TOKEN = "8703693504:AAGID7NfYIxJG8WGTvyC_SoJhQODttmokM4"
+GROQ_API_KEY = "YOUR_GROQ_API_KEY_HERE"
 
-# 1. /start ሲሉ የሚሰጠው መልስ
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("ሰላም! የ ክሪፕቶ መረጃ ቦትዎ በስኬት ተጀምሯል።")
+client = Groq(api_key=GROQ_API_KEY)
+bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 
-# 2. ተራ ጽሑፍ ሲጽፉ የሚመልሰው (በ AI ወይም በራሱ)
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_text = update.message.text
-    await update.message.reply_text(f"የላኩትን መልዕክት ተቀብያለሁ: {user_text}")
+app = Flask(__name__)
 
-application = ApplicationBuilder().token(BOT_TOKEN).build()
+@app.route(f'/{TELEGRAM_BOT_TOKEN}', methods=['POST'])
+def webhook():
+    json_str = request.get_data().astype(str) if hasattr(request.get_data(), 'astype') else request.get_data().decode('utf-8')
+    update = telebot.types.Update.de_json(json_str)
+    bot.process_new_updates([update])
+    return "!", 200
 
-# ሃንድለሮችን መጨመር
-application.add_handler(CommandHandler("start", start))
-application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+@app.route('/')
+def home():
+    return "Bot is running with Webhook!"
 
-# ዌብሆክን ማስጀመር
-application.run_webhook(
-    listen="0.0.0.0",
-    port=PORT,
-    url_path=BOT_TOKEN,
-    webhook_url=f"https://crypto--bott.onrender.com/{BOT_TOKEN}"
-)
+@bot.message_handler(commands=['start'])
+def send_welcome(message):
+    bot.reply_to(message, "Hello! Bot is ready. Send a market name like 'Gold' or 'BTC'.")
+
+@bot.message_handler(func=lambda message: True)
+def analyze_market(message):
+    user_query = message.text
+    bot.reply_to(message, f"Analyzing '{user_query}'... Please wait.")
+    
+    try:
+        chat_completion = client.chat.completions.create(
+            messages=[
+                {
+                    "role": "user",
+                    "content": f"Provide a detailed financial market analysis and technical levels for: {user_query}. Respond in English.",
+                }
+            ],
+            model="llama-3.3-70b-versatile",
+        )
+        response_text = chat_completion.choices[0].message.content
+        bot.reply_to(message, response_text)
+    except Exception as e:
+        bot.reply_to(message, f"Error: {str(e)}")
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
 
