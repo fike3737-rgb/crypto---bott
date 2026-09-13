@@ -573,7 +573,7 @@ def pip_size(symbol: str):
     ):
         return 0.0001
 
-    # Crypto has no universal pip
+    # Crypto has no universal broker-defined pip.
     return None
 
 
@@ -972,7 +972,7 @@ def analyze_market(
         )
 
     # -----------------------------------------------------
-    # RISK / REWARD
+    # RISK / REWARD + PIPS
     # -----------------------------------------------------
 
     if direction == "BUY":
@@ -1001,6 +1001,22 @@ def analyze_market(
         else 0
     )
 
+    # Calculate pip distances for FX / Gold / Silver.
+    # Crypto does not have a universal broker pip size,
+    # so these values are left as None for crypto.
+    pip = pip_size(symbol)
+
+    if pip is not None and pip > 0:
+        risk_pips = round(risk / pip)
+        tp1_pips = round(abs(tp1 - limit_entry) / pip)
+        tp2_pips = round(abs(tp2 - limit_entry) / pip)
+        tp3_pips = round(abs(tp3 - limit_entry) / pip)
+    else:
+        risk_pips = None
+        tp1_pips = None
+        tp2_pips = None
+        tp3_pips = None
+
     return {
         "symbol": symbol,
         "market": market,
@@ -1014,6 +1030,10 @@ def analyze_market(
         "tp2": tp2,
         "tp3": tp3,
         "rr": rr,
+        "risk_pips": risk_pips,
+        "tp1_pips": tp1_pips,
+        "tp2_pips": tp2_pips,
+        "tp3_pips": tp3_pips,
         "reasons": reasons,
     }
 
@@ -1055,6 +1075,21 @@ def format_analysis(result):
     tp3 = result["tp3"]
     rr = result["rr"]
 
+    risk_pips = result.get("risk_pips")
+    tp1_pips = result.get("tp1_pips")
+    tp2_pips = result.get("tp2_pips")
+    tp3_pips = result.get("tp3_pips")
+
+    if risk_pips is not None:
+        pip_text = (
+            f"Risk: {risk_pips} pips\n"
+            f"🎯 TP1: {tp1_pips} pips\n"
+            f"🎯 TP2: {tp2_pips} pips\n"
+            f"🎯 TP3: {tp3_pips} pips"
+        )
+    else:
+        pip_text = "Pips: N/A (crypto has no universal pip size)"
+
     if direction == "BUY":
 
         action = "🟢 BUY LIMIT"
@@ -1075,7 +1110,8 @@ def format_analysis(result):
         f"Signal: {action}\n\n"
         f"Current Price: {format_price(price)}\n\n"
         f"Limit Entry: {format_price(limit_entry)}\n"
-        f"SL: {format_price(sl)}\n\n"
+        f"SL: {format_price(sl)}\n"
+        f"{pip_text}\n\n"
         f"🎯 TP1: {format_price(tp1)}\n"
         f"🎯 TP2: {format_price(tp2)}\n"
         f"🎯 TP3: {format_price(tp3)}\n\n"
