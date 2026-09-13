@@ -1039,9 +1039,9 @@ def format_analysis(result):
     reason_text = "\n".join(
         "• " + x
         for x in result["reasons"]
-    )
+    
 
-    return 
+    return )
         f"📊 {symbol}\n\n"
 
         f"Market: 🟢 GOOD\n"
