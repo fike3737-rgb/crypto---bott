@@ -1043,13 +1043,18 @@ def format_analysis(result):
 
     return (
         f"📊 {symbol}\n\n"
-
         f"Market: 🟢 GOOD\n"
         f"Confidence: {confidence}%\n"
         f"Signal: {action}\n\n"
-
         f"Current Price: "
         f"{format_price(price)}\n"
+        
+
+        
+        
+
+
+
 
         f"Limit Entry: "
         f"{format_price(limit_entry)}\n"
