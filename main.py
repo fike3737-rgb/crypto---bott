@@ -1041,7 +1041,7 @@ def format_analysis(result):
         for x in result["reasons"]
     
 
-    return (
+    return )
         f"📊 {symbol}\n\n"
         f"Market: 🟢 GOOD\n"
         f"Confidence: {confidence}%\n"
@@ -1049,12 +1049,6 @@ def format_analysis(result):
         f"Current Price: "
         f"{format_price(price)}\n"
         
-
-        
-        
-
-
-
 
         f"Limit Entry: "
         f"{format_price(limit_entry)}\n"
