@@ -1036,7 +1036,7 @@ def format_analysis(result):
 
         action = "🔴 SELL LIMIT"
 
-   reason_text = "\n".join(
+    reason_text = "\n".join(
         "• " + x
         for x in result["reasons"]
     )
@@ -1046,19 +1046,121 @@ def format_analysis(result):
         f"Market: 🟢 GOOD\n"
         f"Confidence: {confidence}%\n"
         f"Signal: {action}\n\n"
-        f"Current Price: "
-        f"{format_price(price)}\n\n"
-        f"Limit Entry: "
-        f"{format_price(limit_entry)}\n"
-        f"SL: "
-        f"{format_price(sl)}\n\n"
-        f"🎯 TP1: "
-        f"{format_price(tp1)}\n"
-        f"🎯 TP2: "
-        f"{format_price(tp2)}\n"
-        f"🎯 TP3: "
-        f"{format_price(tp3)}\n\n"
-        f"Risk/Reward: "
-        f"1:{rr:.2f}\n\n"
+        f"Current Price: {format_price(price)}\n\n"
+        f"Limit Entry: {format_price(limit_entry)}\n"
+        f"SL: {format_price(sl)}\n\n"
+        f"🎯 TP1: {format_price(tp1)}\n"
+        f"🎯 TP2: {format_price(tp2)}\n"
+        f"🎯 TP3: {format_price(tp3)}\n\n"
+        f"Risk/Reward: 1:{rr:.2f}\n\n"
         f"Reasons:\n{reason_text}"
-    ) 
+    )
+
+
+# =========================================================
+# TELEGRAM COMMANDS / BOT
+# =========================================================
+
+async def start_command(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+    await update.message.reply_text(
+        "🤖 CryptoFlowBot is running.\n\n"
+        "Send a symbol such as BTCUSDT or EUR/USD.\n"
+        "You can also use:\n"
+        "/analyze BTCUSDT\n"
+        "/analyze EUR/USD"
+    )
+
+
+async def analyze_symbol(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    symbol: str
+):
+    symbol = symbol.strip()
+
+    if not symbol:
+        await update.message.reply_text(
+            "Please send a symbol, for example BTCUSDT or EUR/USD."
+        )
+        return
+
+    try:
+        normalized = normalize_symbol(symbol)
+        df = get_market_data(normalized)
+        result = analyze_market(df, normalized)
+        text = format_analysis(result)
+        await update.message.reply_text(text)
+    except Exception as e:
+        print(f"Analysis error for {symbol}: {e}")
+        await update.message.reply_text(
+            f"❌ Could not analyze {symbol}.\n"
+            f"Error: {e}"
+        )
+
+
+async def analyze_command(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+    if not context.args:
+        await update.message.reply_text(
+            "Usage: /analyze BTCUSDT\n"
+            "or: /analyze EUR/USD"
+        )
+        return
+
+    symbol = " ".join(context.args)
+    await analyze_symbol(update, context, symbol)
+
+
+async def text_handler(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+    if not update.message or not update.message.text:
+        return
+
+    symbol = update.message.text.strip()
+
+    if symbol.startswith("/"):
+        return
+
+    await analyze_symbol(update, context, symbol)
+
+
+def main():
+    if not BOT_TOKEN:
+        raise RuntimeError("TELEGRAM_BOT_TOKEN is missing.")
+
+    # Render needs an HTTP listener on the PORT it provides.
+    health_thread = threading.Thread(
+        target=start_health_server,
+        daemon=True
+    )
+    health_thread.start()
+
+    application = Application.builder().token(BOT_TOKEN).build()
+
+    application.add_handler(
+        CommandHandler("start", start_command)
+    )
+    application.add_handler(
+        CommandHandler("analyze", analyze_command)
+    )
+    application.add_handler(
+        MessageHandler(
+            filters.TEXT & ~filters.COMMAND,
+            text_handler
+        )
+    )
+
+    print("CryptoFlowBot Telegram polling started.")
+    application.run_polling()
+
+
+if __name__ == "__main__":
+    main()
+
