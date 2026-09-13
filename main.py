@@ -1,187 +1,292 @@
-# cryptoflowbot.py
-# Python 3.10+
-#
-# Install:
-# pip install python-telegram-bot requests pandas
-#
-# Set these environment variables:
-# TELEGRAM_BOT_TOKEN
-# TELEGRAM_CHAT_ID
-# TWELVE_DATA_KEY
-#
-# IMPORTANT:
-# Never publish your real tokens/API keys.
-
 import os
-import time
+import base64
+import threading
 import requests
 import pandas as pd
 
-from telegram import Bot
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from openai import OpenAI
 
-# ============================================================
+from telegram import Update
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    MessageHandler,
+    ContextTypes,
+    filters,
+)
+
+# =========================================================
 # CONFIG
-# ============================================================
+# =========================================================
 
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 TWELVE_DATA_KEY = os.getenv("TWELVE_DATA_KEY")
-
-
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 TIMEFRAME = "15min"
-CHECK_SECONDS = 60
-
 MIN_CONFIDENCE = 75
+MIN_PIPS = 50
 
-# Crypto symbols supported by Binance
-CRYPTO_SYMBOLS = [
-    "BTCUSDT",
-    "ETHUSDT",
-    "BNBUSDT",
-    "SOLUSDT",
-    "XRPUSDT",
-    "ADAUSDT",
-    "DOGEUSDT",
-]
+VISION_MODEL = "qwen/qwen3.6-27b"
 
-# Forex / metals / commodities
-TWELVE_SYMBOLS = [
-    "EUR/USD",
-    "GBP/USD",
-    "USD/JPY",
-    "AUD/USD",
-    "USD/CAD",
-    "USD/CHF",
-    "NZD/USD",
-    "XAU/USD",
-    "XAG/USD",
-]
+if not BOT_TOKEN:
+    raise RuntimeError("TELEGRAM_BOT_TOKEN is missing")
 
-# Remember last alert
-last_alert = {}
+if not GROQ_API_KEY:
+    raise RuntimeError("GROQ_API_KEY is missing")
+
+groq = OpenAI(
+    api_key=GROQ_API_KEY,
+    base_url="https://api.groq.com/openai/v1"
+)
+
+# =========================================================
+# RENDER HEALTH SERVER
+# =========================================================
+
+class HealthHandler(BaseHTTPRequestHandler):
+
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header(
+            "Content-Type",
+            "text/plain"
+        )
+        self.end_headers()
+        self.wfile.write(
+            b"CryptoFlowBot is running."
+        )
+
+    def log_message(self, format, *args):
+        pass
 
 
-# ============================================================
-# TELEGRAM
-# ============================================================
+def start_server():
 
-if not BOT_TOKEN or not CHAT_ID:
-    raise RuntimeError(
-        "Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID first."
+    port = int(
+        os.getenv("PORT", "10000")
     )
 
-bot = Bot(token=BOT_TOKEN)
+    server = HTTPServer(
+        ("0.0.0.0", port),
+        HealthHandler
+    )
+
+    print(
+        f"Health server running on {port}"
+    )
+
+    server.serve_forever()
 
 
-async def send_telegram(message: str):
-    try:
-        await bot.send_message(
-            chat_id=CHAT_ID,
-            text=message
-        )
-        print("Telegram sent.")
-    except Exception as e:
-        print(f"Telegram error: {e}")
-    
-        
-            
-            
-            
-        
-        
-    
-        
+# =========================================================
+# SYMBOL
+# =========================================================
+
+def clean_symbol(symbol):
+
+    return (
+        symbol.upper()
+        .strip()
+        .replace("/", "")
+        .replace("-", "")
+        .replace("_", "")
+    )
 
 
-# ============================================================
-# BINANCE DATA
-# ============================================================
+def twelve_symbol(symbol):
 
-def get_binance_data(symbol, limit=100):
+    symbol = clean_symbol(symbol)
 
-    url = "https://api.binance.com/api/v3/klines"
-
-    params = {
-        "symbol": symbol,
-        "interval": "15m",
-        "limit": limit
+    symbols = {
+        "EURUSD": "EUR/USD",
+        "GBPUSD": "GBP/USD",
+        "USDJPY": "USD/JPY",
+        "AUDUSD": "AUD/USD",
+        "USDCAD": "USD/CAD",
+        "USDCHF": "USD/CHF",
+        "NZDUSD": "NZD/USD",
+        "XAUUSD": "XAU/USD",
+        "GOLD": "XAU/USD",
+        "XAGUSD": "XAG/USD",
+        "SILVER": "XAG/USD",
     }
 
-    r = requests.get(url, params=params, timeout=10)
-    r.raise_for_status()
+    return symbols.get(
+        symbol,
+        symbol
+    )
+
+
+# =========================================================
+# BINANCE
+# =========================================================
+
+def get_binance_data(symbol):
+
+    url = (
+        "https://api.binance.com/"
+        "api/v3/klines"
+    )
+
+    params = {
+        "symbol": clean_symbol(symbol),
+        "interval": "15m",
+        "limit": 200
+    }
+
+    r = requests.get(
+        url,
+        params=params,
+        timeout=15
+    )
+
+    if r.status_code != 200:
+        raise RuntimeError(
+            "Not a Binance symbol"
+        )
 
     data = r.json()
 
-    df = pd.DataFrame(data, columns=[
-        "time",
+    if not isinstance(data, list):
+        raise RuntimeError(
+            "Invalid Binance data"
+        )
+
+    df = pd.DataFrame(
+        data,
+        columns=[
+            "time",
+            "open",
+            "high",
+            "low",
+            "close",
+            "volume",
+            "close_time",
+            "qav",
+            "trades",
+            "tbav",
+            "tqav",
+            "ignore"
+        ]
+    )
+
+    for c in [
         "open",
         "high",
         "low",
         "close",
-        "volume",
-        "close_time",
-        "qav",
-        "trades",
-        "tbav",
-        "tqav",
-        "ignore"
-    ])
-
-    for col in ["open", "high", "low", "close", "volume"]:
-        df[col] = df[col].astype(float)
+        "volume"
+    ]:
+        df[c] = df[c].astype(float)
 
     return df
 
 
-# ============================================================
+# =========================================================
 # TWELVE DATA
-# ============================================================
+# =========================================================
 
-def get_twelve_data(symbol, limit=100):
+def get_twelve_data(symbol):
 
-    url = "https://api.twelvedata.com/time_series"
+    if not TWELVE_DATA_KEY:
+        raise RuntimeError(
+            "TWELVE_DATA_KEY is missing"
+        )
+
+    url = (
+        "https://api.twelvedata.com/"
+        "time_series"
+    )
 
     params = {
-        "symbol": symbol,
+        "symbol": twelve_symbol(symbol),
         "interval": TIMEFRAME,
-        "outputsize": limit,
+        "outputsize": 200,
         "apikey": TWELVE_DATA_KEY
     }
 
-    r = requests.get(url, params=params, timeout=10)
-    r.raise_for_status()
+    r = requests.get(
+        url,
+        params=params,
+        timeout=15
+    )
 
     data = r.json()
 
     if "values" not in data:
-        raise RuntimeError(str(data))
+        raise RuntimeError(
+            str(data)
+        )
 
-    df = pd.DataFrame(data["values"])
+    df = pd.DataFrame(
+        data["values"]
+    )
 
-    df = df.iloc[::-1].reset_index(drop=True)
+    df = df.iloc[::-1].reset_index(
+        drop=True
+    )
 
-    for col in ["open", "high", "low", "close"]:
-        df[col] = df[col].astype(float)
+    for c in [
+        "open",
+        "high",
+        "low",
+        "close"
+    ]:
+        df[c] = df[c].astype(float)
 
     return df
 
 
-# ============================================================
+# =========================================================
+# GET DATA
+# =========================================================
+
+def get_market_data(symbol):
+
+    symbol = clean_symbol(symbol)
+
+    # Crypto
+    if (
+        symbol.endswith("USDT")
+        or symbol.endswith("USDC")
+    ):
+        try:
+            return get_binance_data(symbol)
+        except Exception:
+            pass
+
+    # Forex / Gold / Silver
+    return get_twelve_data(symbol)
+
+
+# =========================================================
 # INDICATORS
-# ============================================================
+# =========================================================
 
-def calculate_indicators(df):
+def indicators(df):
 
-    df["EMA20"] = df["close"].ewm(
-        span=20,
-        adjust=False
-    ).mean()
+    df = df.copy()
 
-    df["EMA50"] = df["close"].ewm(
-        span=50,
-        adjust=False
-    ).mean()
+    df["EMA20"] = (
+        df["close"]
+        .ewm(
+            span=20,
+            adjust=False
+        )
+        .mean()
+    )
+
+    df["EMA50"] = (
+        df["close"]
+        .ewm(
+            span=50,
+            adjust=False
+        )
+        .mean()
+    )
 
     delta = df["close"].diff()
 
@@ -191,18 +296,29 @@ def calculate_indicators(df):
     avg_gain = gain.rolling(14).mean()
     avg_loss = loss.rolling(14).mean()
 
-    rs = avg_gain / avg_loss.replace(0, pd.NA)
+    rs = avg_gain / avg_loss.replace(
+        0,
+        pd.NA
+    )
 
-    df["RSI"] = 100 - (100 / (1 + rs))
+    df["RSI"] = (
+        100 -
+        (100 / (1 + rs))
+    )
 
-    high_low = df["high"] - df["low"]
+    high_low = (
+        df["high"] -
+        df["low"]
+    )
 
     high_close = (
-        df["high"] - df["close"].shift()
+        df["high"] -
+        df["close"].shift()
     ).abs()
 
     low_close = (
-        df["low"] - df["close"].shift()
+        df["low"] -
+        df["close"].shift()
     ).abs()
 
     tr = pd.concat(
@@ -219,15 +335,39 @@ def calculate_indicators(df):
     return df
 
 
-# ============================================================
+# =========================================================
+# PIP SIZE
+# =========================================================
+
+def pip_size(symbol):
+
+    symbol = clean_symbol(symbol)
+
+    if "JPY" in symbol:
+        return 0.01
+
+    if symbol in [
+        "XAUUSD",
+        "XAGUSD"
+    ]:
+        return 0.01
+
+    if len(symbol) == 6:
+        return 0.0001
+
+    return None
+
+
+# =========================================================
 # MARKET ANALYSIS
-# ============================================================
+# =========================================================
 
-def analyze_market(df):
+def analyze_market(df, symbol):
 
-    df = calculate_indicators(df)
+    df = indicators(df)
 
     row = df.iloc[-1]
+    prev = df.iloc[-2]
 
     price = float(row["close"])
     ema20 = float(row["EMA20"])
@@ -235,245 +375,557 @@ def analyze_market(df):
     rsi = float(row["RSI"])
     atr = float(row["ATR"])
 
-    buy_score = 0
-    sell_score = 0
+    previous_price = float(
+        prev["close"]
+    )
+
+    buy = 0
+    sell = 0
+
+    buy_reasons = []
+    sell_reasons = []
 
     # Trend
     if ema20 > ema50:
-        buy_score += 30
+        buy += 30
+        buy_reasons.append(
+            "EMA20 > EMA50"
+        )
 
-    if ema20 < ema50:
-        sell_score += 30
+    elif ema20 < ema50:
+        sell += 30
+        sell_reasons.append(
+            "EMA20 < EMA50"
+        )
 
-    # Price location
+    # Price
     if price > ema20:
-        buy_score += 20
+        buy += 20
+        buy_reasons.append(
+            "Price above EMA20"
+        )
 
-    if price < ema20:
-        sell_score += 20
+    elif price < ema20:
+        sell += 20
+        sell_reasons.append(
+            "Price below EMA20"
+        )
 
     # RSI
-    if 55 <= rsi <= 70:
-        buy_score += 25
+    if 52 <= rsi <= 68:
+        buy += 20
+        buy_reasons.append(
+            "Bullish RSI"
+        )
 
-    if 30 <= rsi <= 45:
-        sell_score += 25
+    elif 32 <= rsi <= 48:
+        sell += 20
+        sell_reasons.append(
+            "Bearish RSI"
+        )
 
     # Momentum
-    if price > df["close"].iloc[-2]:
-        buy_score += 15
+    if price > previous_price:
+        buy += 15
+        buy_reasons.append(
+            "Positive momentum"
+        )
 
-    if price < df["close"].iloc[-2]:
-        sell_score += 15
+    elif price < previous_price:
+        sell += 15
+        sell_reasons.append(
+            "Negative momentum"
+        )
 
     confidence = max(
-        buy_score,
-        sell_score
+        buy,
+        sell
     )
 
-    # --------------------------------------------------------
-    # NO TRADE
-    # --------------------------------------------------------
+    difference = abs(
+        buy - sell
+    )
 
-    if confidence < MIN_CONFIDENCE:
+    # =====================================================
+    # UNCERTAIN
+    # =====================================================
+
+    if (
+        confidence < MIN_CONFIDENCE
+        or difference < 15
+    ):
 
         return {
-            "signal": "NO TRADE",
+            "signal": "WAIT",
+            "condition": "UNCERTAIN",
             "confidence": confidence,
             "price": price,
-            "atr": atr
+            "reason": (
+                "Market direction is "
+                "not sufficiently clear."
+            )
         }
 
-    # --------------------------------------------------------
+    # =====================================================
     # BUY
-    # --------------------------------------------------------
+    # =====================================================
 
-    if buy_score > sell_score:
+    if buy > sell:
 
-        entry = price
+        buy_limit = (
+            price - atr * 0.40
+        )
 
-        sl = entry - (atr * 1.5)
+        sl = (
+            buy_limit - atr * 1.5
+        )
 
-        tp1 = entry + (atr * 1.0)
-        tp2 = entry + (atr * 2.0)
-        tp3 = entry + (atr * 3.0)
+        minimum_move = (
+            MIN_PIPS * pip_size(symbol)
+            if pip_size(symbol)
+            else atr * 1.5
+        )
 
-        ml = (tp1 + tp2) / 2
+        tp1 = buy_limit + max(
+            atr * 1.5,
+            minimum_move
+        )
+
+        tp2 = buy_limit + max(
+            atr * 2.5,
+            minimum_move * 2
+        )
+
+        tp3 = buy_limit + max(
+            atr * 3.5,
+            minimum_move * 3
+        )
 
         return {
             "signal": "BUY",
+            "condition": "GOOD",
             "confidence": confidence,
             "price": price,
-            "entry": entry,
-            "ml": ml,
+            "limit": buy_limit,
+            "sl": sl,
             "tp1": tp1,
             "tp2": tp2,
             "tp3": tp3,
-            "sl": sl,
-            "atr": atr
+            "reasons": buy_reasons
         }
 
-    # --------------------------------------------------------
+    # =====================================================
     # SELL
-    # --------------------------------------------------------
+    # =====================================================
 
-    entry = price
+    sell_limit = (
+        price + atr * 0.40
+    )
 
-    sl = entry + (atr * 1.5)
+    sl = (
+        sell_limit + atr * 1.5
+    )
 
-    tp1 = entry - (atr * 1.0)
-    tp2 = entry - (atr * 2.0)
-    tp3 = entry - (atr * 3.0)
+    minimum_move = (
+        MIN_PIPS * pip_size(symbol)
+        if pip_size(symbol)
+        else atr * 1.5
+    )
 
-    ml = (tp1 + tp2) / 2
+    tp1 = sell_limit - max(
+        atr * 1.5,
+        minimum_move
+    )
+
+    tp2 = sell_limit - max(
+        atr * 2.5,
+        minimum_move * 2
+    )
+
+    tp3 = sell_limit - max(
+        atr * 3.5,
+        minimum_move * 3
+    )
 
     return {
         "signal": "SELL",
+        "condition": "GOOD",
         "confidence": confidence,
         "price": price,
-        "entry": entry,
-        "ml": ml,
+        "limit": sell_limit,
+        "sl": sl,
         "tp1": tp1,
         "tp2": tp2,
         "tp3": tp3,
-        "sl": sl,
-        "atr": atr
+        "reasons": sell_reasons
     }
 
 
-# ============================================================
-# FORMAT MESSAGE
-# ============================================================
+# =========================================================
+# FORMAT PRICE
+# =========================================================
 
-def format_signal(symbol, result):
+def fmt(value, symbol):
 
-    signal = result["signal"]
-    confidence = result["confidence"]
+    symbol = clean_symbol(symbol)
 
-    if signal == "NO TRADE":
+    if "JPY" in symbol:
+        return f"{value:.3f}"
+
+    if symbol in [
+        "XAUUSD",
+        "XAGUSD"
+    ]:
+        return f"{value:.2f}"
+
+    if len(symbol) == 6:
+        return f"{value:.5f}"
+
+    return f"{value:.2f}"
+
+
+# =========================================================
+# MESSAGE
+# =========================================================
+
+def format_result(symbol, result):
+
+    confidence = result[
+        "confidence"
+    ]
+
+    # Uncertain
+    if result["condition"] == "UNCERTAIN":
 
         return (
             "⚠️ CRYPTOFLOWBOT\n\n"
-            f"Symbol: {symbol}\n"
-            "🚫 NO TRADE\n\n"
-            "Market condition is unclear.\n"
+            f"Symbol: {symbol}\n\n"
+            "⚠️ MARKET: UNCERTAIN\n"
             f"Confidence: {confidence}%\n\n"
-            "⛔ Wait for confirmation."
+            "Market direction is not clear.\n"
+            "🚫 DO NOT TRADE\n"
+            "⏳ WAIT FOR CONFIRMATION."
         )
 
-    emoji = "🟢" if signal == "BUY" else "🔴"
+    reasons = "\n".join(
+        "• " + r
+        for r in result["reasons"]
+    )
+
+    if result["signal"] == "BUY":
+
+        return (
+            "🟢 CRYPTOFLOWBOT\n\n"
+            f"Symbol: {symbol}\n"
+            "MARKET: GOOD\n\n"
+            "📈 TRADE OPPORTUNITY: BUY\n"
+            f"Confidence: {confidence}%\n\n"
+            "📍 TRADE SETUP\n"
+            f"🟢 BUY LIMIT: "
+            f"{fmt(result['limit'], symbol)}\n"
+            f"🛑 SL: "
+            f"{fmt(result['sl'], symbol)}\n\n"
+            f"🎯 TP1: "
+            f"{fmt(result['tp1'], symbol)}\n"
+            f"🎯 TP2: "
+            f"{fmt(result['tp2'], symbol)}\n"
+            f"🎯 TP3: "
+            f"{fmt(result['tp3'], symbol)}\n\n"
+            "🧠 REASONS\n"
+            f"{reasons}\n\n"
+            "⚠️ Confidence is a strategy score, "
+            "not a guaranteed win rate."
+        )
 
     return (
-        "🚨 CRYPTOFLOWBOT ALERT\n\n"
+        "🔴 CRYPTOFLOWBOT\n\n"
         f"Symbol: {symbol}\n"
-        f"{emoji} SIGNAL: {signal}\n"
-        f"📊 Confidence: {confidence}%\n\n"
-        "📍 TRADING ZONE\n"
-        f"{'BUY ZONE' if signal == 'BUY' else 'SELL ZONE'}\n\n"
-        f"Entry / SP: {result['entry']:.5f}\n"
-        f"ML: {result['ml']:.5f}\n\n"
-        f"🎯 TP1: {result['tp1']:.5f}\n"
-        f"🎯 TP2: {result['tp2']:.5f}\n"
-        f"🎯 TP3: {result['tp3']:.5f}\n\n"
-        f"🛑 SL: {result['sl']:.5f}\n\n"
-        "⏱ Timeframe: M15\n"
-        "⚠️ Signal is technical analysis, not a guarantee."
+        "MARKET: GOOD\n\n"
+        "📉 TRADE OPPORTUNITY: SELL\n"
+        f"Confidence: {confidence}%\n\n"
+        "📍 TRADE SETUP\n"
+        f"🔴 SELL LIMIT: "
+        f"{fmt(result['limit'], symbol)}\n"
+        f"🛑 SL: "
+        f"{fmt(result['sl'], symbol)}\n\n"
+        f"🎯 TP1: "
+        f"{fmt(result['tp1'], symbol)}\n"
+        f"🎯 TP2: "
+        f"{fmt(result['tp2'], symbol)}\n"
+        f"🎯 TP3: "
+        f"{fmt(result['tp3'], symbol)}\n\n"
+        "🧠 REASONS\n"
+        f"{reasons}\n\n"
+        "⚠️ Confidence is a strategy score, "
+        "not a guaranteed win rate."
     )
 
 
-# ============================================================
-# DUPLICATE ALERT PROTECTION
-# ============================================================
+# =========================================================
+# TEXT HANDLER
+# =========================================================
 
-def should_alert(symbol, result):
+async def handle_text(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
 
-    signal = result["signal"]
-
-    key = (
-        signal,
-        round(result["confidence"], 0)
+    symbol = clean_symbol(
+        update.message.text
     )
 
-    if last_alert.get(symbol) == key:
-        return False
+    if len(symbol) < 4:
+        await update.message.reply_text(
+            "⚠️ Send a symbol.\n\n"
+            "Example:\n"
+            "BTCUSDT\n"
+            "EURUSD\n"
+            "XAUUSD"
+        )
+        return
 
-    last_alert[symbol] = key
-
-    return True
-
-
-# ============================================================
-# SCAN SYMBOL
-# ============================================================
-
-def scan_symbol(symbol, source):
+    await update.message.reply_text(
+        f"🔎 Analyzing {symbol}..."
+    )
 
     try:
 
-        if source == "BINANCE":
-            df = get_binance_data(symbol)
+        df = get_market_data(symbol)
 
-        else:
-            df = get_twelve_data(symbol)
+        result = analyze_market(
+            df,
+            symbol
+        )
 
-        result = analyze_market(df)
-
-        if should_alert(symbol, result):
-
-            message = format_signal(
+        await update.message.reply_text(
+            format_result(
                 symbol,
                 result
             )
-
-            send_telegram(message)
-
-        print(
-            symbol,
-            result["signal"],
-            result["confidence"]
         )
 
     except Exception as e:
 
-        print(
-            "ERROR",
-            symbol,
-            str(e)
+        await update.message.reply_text(
+            f"❌ Could not analyze "
+            f"{symbol}.\n\n{e}"
         )
 
 
-# ============================================================
-# MAIN LOOP
-# ============================================================
+# =========================================================
+# CHART ANALYSIS WITH GROQ
+# =========================================================
+
+def analyze_chart(image_bytes, symbol):
+
+    encoded = base64.b64encode(
+        image_bytes
+    ).decode("utf-8")
+
+    response = groq.chat.completions.create(
+
+        model=VISION_MODEL,
+
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You are a technical analysis "
+                    "assistant. Analyze trading charts "
+                    "carefully. Never guarantee profit."
+                )
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": (
+                            f"Analyze this {symbol} chart.\n\n"
+                            "Give:\n"
+                            "1. Trend\n"
+                            "2. Market structure\n"
+                            "3. Momentum\n"
+                            "4. Support/resistance\n"
+                            "5. GOOD, BAD or UNCERTAIN\n"
+                            "6. Whether a trade should be "
+                            "considered or avoided.\n\n"
+                            "Do not invent prices."
+                        )
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url":
+                            "data:image/jpeg;base64,"
+                            + encoded
+                        }
+                    }
+                ]
+            }
+        ],
+
+        temperature=0.1
+    )
+
+    return (
+        response
+        .choices[0]
+        .message
+        .content
+    )
+
+
+# =========================================================
+# PHOTO HANDLER
+# =========================================================
+
+async def handle_photo(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    caption = (
+        update.message.caption
+        or ""
+    ).strip()
+
+    if not caption:
+
+        await update.message.reply_text(
+            "📷 Chart received.\n\n"
+            "Please put the symbol in the "
+            "caption.\n\n"
+            "Example: XAUUSD"
+        )
+
+        return
+
+    symbol = clean_symbol(
+        caption
+    )
+
+    await update.message.reply_text(
+        f"📷 Analyzing {symbol} chart..."
+    )
+
+    try:
+
+        photo = update.message.photo[-1]
+
+        file = await context.bot.get_file(
+            photo.file_id
+        )
+
+        image = (
+            await file.download_as_bytearray()
+        )
+
+        # Live market analysis
+        df = get_market_data(symbol)
+
+        result = analyze_market(
+            df,
+            symbol
+        )
+
+        # Groq vision analysis
+        chart = analyze_chart(
+            bytes(image),
+            symbol
+        )
+
+        message = format_result(
+            symbol,
+            result
+        )
+
+        message += (
+            "\n\n📷 CHART ANALYSIS\n\n"
+            + chart
+        )
+
+        await update.message.reply_text(
+            message
+        )
+
+    except Exception as e:
+
+        await update.message.reply_text(
+            f"❌ Chart analysis failed.\n\n{e}"
+        )
+
+
+# =========================================================
+# START
+# =========================================================
+
+async def start(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    await update.message.reply_text(
+        "🤖 CRYPTOFLOWBOT\n\n"
+        "Send ONE symbol.\n\n"
+        "Examples:\n"
+        "BTCUSDT\n"
+        "ETHUSDT\n"
+        "EURUSD\n"
+        "XAUUSD\n\n"
+        "📷 You can also send a chart "
+        "with the symbol in the caption.\n\n"
+        "🟢 GOOD = trade opportunity\n"
+        "⚠️ UNCERTAIN = wait\n"
+        "🔴 BAD = avoid"
+    )
+
+
+# =========================================================
+# MAIN
+# =========================================================
 
 def main():
 
-    send_telegram(
-        "🤖 CRYPTOFLOWBOT STARTED\n\n"
-        "📊 Multi-Symbol Market Monitor\n"
-        "⏱ Timeframe: M15\n"
-        "🔔 Telegram Alerts: ON"
+    threading.Thread(
+        target=start_server,
+        daemon=True
+    ).start()
+
+    app = (
+        Application
+        .builder()
+        .token(BOT_TOKEN)
+        .build()
     )
 
-    while True:
+    app.add_handler(
+        CommandHandler(
+            "start",
+            start
+        )
+    )
 
-        # Crypto
-        for symbol in CRYPTO_SYMBOLS:
+    app.add_handler(
+        MessageHandler(
+            filters.PHOTO,
+            handle_photo
+        )
+    )
 
-            scan_symbol(
-                symbol,
-                "BINANCE"
-            )
+    app.add_handler(
+        MessageHandler(
+            filters.TEXT &
+            ~filters.COMMAND,
+            handle_text
+        )
+    )
 
-        # Forex / Metals
-        for symbol in TWELVE_SYMBOLS:
+    print(
+        "CRYPTOFLOWBOT is running..."
+    )
 
-            scan_symbol(
-                symbol,
-                "TWELVE"
-            )
-
-        time.sleep(CHECK_SECONDS)
+    app.run_polling()
 
 
 if __name__ == "__main__":
