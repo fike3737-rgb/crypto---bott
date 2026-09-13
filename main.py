@@ -1067,4 +1067,4 @@ def format_analysis(result):
         f"{format_price(tp3)}\n\n"
 
         f"Risk/Reward: "
-        f"1:{rr:.2f}\n\n
+        f"1:{rr:.2f}\n\n"
